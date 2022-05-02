@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	"github.com/marcosQuesada/prometheus-operator/pkg/operator"
+	service2 "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	rbac "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,7 +13,7 @@ import (
 	listersV1 "k8s.io/client-go/listers/rbac/v1"
 )
 
-const clusterRoleName = operator.MonitoringName + "-role"
+const clusterRoleName = service2.MonitoringName + "-role"
 
 type clusterRole struct {
 	client kubernetes.Interface

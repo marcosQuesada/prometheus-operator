@@ -5,6 +5,7 @@ import (
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	"github.com/marcosQuesada/prometheus-operator/pkg/operator"
+	service2 "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	"k8s.io/client-go/informers"
 	"testing"
 	"time"
@@ -15,7 +16,7 @@ func TestFullStackCreation(t *testing.T) {
 	pmClientSet := crd.BuildPrometheusServerExternalClient()
 	sif := informers.NewSharedInformerFactory(clientSet, 0)
 
-	r := []operator.ResourceEnforcer{
+	r := []service2.ResourceEnforcer{
 		NewNamespace(clientSet, sif.Core().V1().Namespaces().Lister()),
 		NewClusterRole(clientSet, sif.Rbac().V1().ClusterRoles().Lister()),
 		NewClusterRoleBinding(clientSet, sif.Rbac().V1().ClusterRoleBindings().Lister()),
@@ -23,7 +24,7 @@ func TestFullStackCreation(t *testing.T) {
 		NewDeployment(clientSet, sif.Apps().V1().Deployments().Lister()),
 		NewService(clientSet, sif.Core().V1().Services().Lister()),
 	}
-	op := operator.NewOperator(pmClientSet, r)
+	op := service2.NewOperator(pmClientSet, r)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
 	p := &v1alpha1.PrometheusServer{
@@ -43,7 +44,7 @@ func TestFullStackDeletion(t *testing.T) {
 	pmClientSet := crd.BuildPrometheusServerExternalClient()
 	sif := informers.NewSharedInformerFactory(clientSet, 0)
 
-	r := []operator.ResourceEnforcer{
+	r := []service2.ResourceEnforcer{
 		NewNamespace(clientSet, sif.Core().V1().Namespaces().Lister()),
 		NewClusterRole(clientSet, sif.Rbac().V1().ClusterRoles().Lister()),
 		NewClusterRoleBinding(clientSet, sif.Rbac().V1().ClusterRoleBindings().Lister()),
@@ -51,7 +52,7 @@ func TestFullStackDeletion(t *testing.T) {
 		NewDeployment(clientSet, sif.Apps().V1().Deployments().Lister()),
 		NewService(clientSet, sif.Core().V1().Services().Lister()),
 	}
-	op := operator.NewOperator(pmClientSet, r)
+	op := service2.NewOperator(pmClientSet, r)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
 	p := &v1alpha1.PrometheusServer{

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	"github.com/marcosQuesada/prometheus-operator/pkg/operator"
+	service2 "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,7 +23,7 @@ func NewNamespace(cl kubernetes.Interface, l listersV1.NamespaceLister) *namespa
 	return &namespace{
 		client: cl,
 		lister: l,
-		name:   operator.MonitoringNamespace,
+		name:   service2.MonitoringNamespace,
 	}
 }
 
@@ -60,7 +60,7 @@ func (c *namespace) create(ctx context.Context, obj *v1alpha1.PrometheusServer) 
 	log.Infof("creating namespace  %s", c.name)
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: operator.MonitoringNamespace,
+			Name: service2.MonitoringNamespace,
 		},
 	}
 	_, err := c.client.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})

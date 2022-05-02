@@ -1,4 +1,4 @@
-package operator
+package service
 
 import (
 	"context"
@@ -36,12 +36,11 @@ func (o *operator) Update(ctx context.Context, old, new *v1alpha1.PrometheusServ
 		return o.Delete(ctx, new)
 	}
 
-	// @TODO: Finalizers Exists ?
 	if !new.HasFinalizer(v1alpha1.Name) {
 		if err := o.addFinalizer(ctx, new); err != nil {
 			return fmt.Errorf("unable to add finalizer, error %v", err)
 		}
-		return nil // @TODO: Let them to another update event
+		return nil
 	}
 
 	switch new.Status.Phase {
@@ -62,7 +61,7 @@ func (o *operator) Update(ctx context.Context, old, new *v1alpha1.PrometheusServ
 		}
 		return nil
 	case v1alpha1.Waiting:
-		log.Infof("Processing state %s ", new.Status.Phase)
+		log.Infof("Processing state %s", new.Status.Phase)
 		for _, r := range o.builders {
 			if err := r.EnsureCreation(ctx, new); err != nil {
 				return fmt.Errorf("unable to ensure creation on %s error %v", r.Name(), err)
@@ -73,9 +72,35 @@ func (o *operator) Update(ctx context.Context, old, new *v1alpha1.PrometheusServ
 		}
 		return nil
 	case v1alpha1.Running:
-		// @TODO: Do nothing
+		// @TODO: Quick and dirty, reboot whole environment as quick fix
+		if !Equals(old, new) {
+			if err := o.updateStatus(ctx, new, v1alpha1.Refreshing); err != nil {
+				return fmt.Errorf("unable to update status, error %v", err)
+			}
+			return nil
+		}
+
+		// @TODO: Further iterations handle separated cases
+		if old.Spec.Config != new.Spec.Config {
+			// Update ConfigMap && Call Prometheus reload command
+			return nil
+		}
+
+		if old.Spec.Version != new.Spec.Version {
+			// Patch/Update Current Deployment
+			return nil
+		}
+	case v1alpha1.Refreshing: // @TODO: Changes happen too fast....they will need proper scheduling....
+		log.Infof("Refreshing Stack %s", new.Name)
+		if err := o.delete(ctx, new); err != nil {
+			return err
+		}
+
+		if err := o.updateStatus(ctx, new, v1alpha1.Initializing); err != nil {
+			return fmt.Errorf("unable to update status, error %v", err)
+		}
 	case v1alpha1.Terminating:
-		// @TODO: Shouldn't happen here!
+		// do nothing
 
 	}
 
@@ -92,7 +117,25 @@ func (o *operator) Delete(ctx context.Context, p *v1alpha1.PrometheusServer) err
 		return nil
 	}
 
-	// @TODO: Running them from the end to beginning (Opposite as creation)
+	if err := o.delete(ctx, p); err != nil {
+		return err
+	}
+
+	if !p.HasFinalizer(v1alpha1.Name) {
+		return nil
+	}
+
+	if err := o.removeFinalizer(ctx, p); err != nil {
+		return fmt.Errorf("unable to removing finalizer, error %v", err)
+	}
+
+	return nil
+}
+
+func (o *operator) delete(ctx context.Context, p *v1alpha1.PrometheusServer) error {
+	log.Infof("Delete called namespace %s name %s ", p.Namespace, p.Name)
+
+	// Running them from the end to beginning (Opposite as creation)
 	for i := len(o.builders) - 1; i >= 0; i-- {
 		r := o.builders[i]
 		if err := r.EnsureDeletion(ctx, p); err != nil {
@@ -100,12 +143,6 @@ func (o *operator) Delete(ctx context.Context, p *v1alpha1.PrometheusServer) err
 		}
 	}
 
-	if p.HasFinalizer(v1alpha1.Name) {
-		if err := o.removeFinalizer(ctx, p); err != nil {
-			return fmt.Errorf("unable to removing finalizer, error %v", err)
-		}
-		return nil
-	}
 	return nil
 }
 

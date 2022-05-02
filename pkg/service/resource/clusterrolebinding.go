@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	"github.com/marcosQuesada/prometheus-operator/pkg/operator"
+	service2 "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	rbac "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,7 +13,7 @@ import (
 	listersV1 "k8s.io/client-go/listers/rbac/v1"
 )
 
-const clusterRoleBindingName = operator.MonitoringName + "-role-binding"
+const clusterRoleBindingName = service2.MonitoringName + "-role-binding"
 
 type clusterRoleBinding struct {
 	client kubernetes.Interface
@@ -75,7 +75,7 @@ func (c *clusterRoleBinding) create(ctx context.Context, obj *v1alpha1.Prometheu
 			{
 				Kind:      "ServiceAccount",
 				Name:      "default",
-				Namespace: operator.MonitoringNamespace,
+				Namespace: service2.MonitoringNamespace,
 			},
 		},
 	}

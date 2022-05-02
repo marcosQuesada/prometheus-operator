@@ -8,7 +8,8 @@ import (
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	"github.com/marcosQuesada/prometheus-operator/pkg/operator"
-	"github.com/marcosQuesada/prometheus-operator/pkg/operator/resource"
+	"github.com/marcosQuesada/prometheus-operator/pkg/service"
+	resource2 "github.com/marcosQuesada/prometheus-operator/pkg/service/resource"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 
@@ -67,15 +68,15 @@ var externalCmd = &cobra.Command{
 			log.Fatal("unable to sync pod informer")
 		}
 
-		r := []operator.ResourceEnforcer{
-			resource.NewNamespace(clientSet, ns.Lister()),
-			resource.NewClusterRole(clientSet, cr.Lister()),
-			resource.NewClusterRoleBinding(clientSet, crb.Lister()),
-			resource.NewConfigMap(clientSet, cm.Lister()),
-			resource.NewDeployment(clientSet, dpl.Lister()),
-			resource.NewService(clientSet, svc.Lister()),
+		r := []service.ResourceEnforcer{
+			resource2.NewNamespace(clientSet, ns.Lister()),
+			resource2.NewClusterRole(clientSet, cr.Lister()),
+			resource2.NewClusterRoleBinding(clientSet, crb.Lister()),
+			resource2.NewConfigMap(clientSet, cm.Lister()),
+			resource2.NewDeployment(clientSet, dpl.Lister()),
+			resource2.NewService(clientSet, svc.Lister()),
 		}
-		op := operator.NewOperator(pmClientSet, r)
+		op := service.NewOperator(pmClientSet, r)
 
 		crdh := crd.NewHandler(op)
 		swCtl := operator.New(crdh, ps.Informer(), operator.NewRunner(), v1alpha1.CrdKind)

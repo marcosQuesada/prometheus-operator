@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	"github.com/marcosQuesada/prometheus-operator/pkg/operator"
+	service2 "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,7 +13,7 @@ import (
 	listersV1 "k8s.io/client-go/listers/core/v1"
 )
 
-const prometheusConfigMapName = operator.MonitoringName + "-config"
+const prometheusConfigMapName = service2.MonitoringName + "-config"
 const prometheusConfigMapKey = "prometheus.yml"
 
 type configMap struct {
@@ -27,7 +27,7 @@ func NewConfigMap(cl kubernetes.Interface, l listersV1.ConfigMapLister) *configM
 	return &configMap{
 		client:    cl,
 		lister:    l,
-		namespace: operator.MonitoringNamespace,
+		namespace: service2.MonitoringNamespace,
 		name:      prometheusConfigMapName,
 	}
 }

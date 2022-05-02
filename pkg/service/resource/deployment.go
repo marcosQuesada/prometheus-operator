@@ -4,17 +4,18 @@ import (
 	"context"
 	"fmt"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	"github.com/marcosQuesada/prometheus-operator/pkg/operator"
+	service2 "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	listersV1 "k8s.io/client-go/listers/apps/v1"
 )
 
-const prometheusDeploymentName = operator.MonitoringName
+const prometheusDeploymentName = service2.MonitoringName
 
 type deployment struct {
 	client    kubernetes.Interface
@@ -27,7 +28,7 @@ func NewDeployment(cl kubernetes.Interface, l listersV1.DeploymentLister) *deplo
 	return &deployment{
 		client:    cl,
 		lister:    l,
-		namespace: operator.MonitoringNamespace,
+		namespace: service2.MonitoringNamespace,
 		name:      prometheusDeploymentName + "-deployment",
 	}
 }
@@ -70,23 +71,23 @@ func (c *deployment) create(ctx context.Context, obj *v1alpha1.PrometheusServer)
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.name,
 			Namespace: c.namespace,
-			Labels:    map[string]string{"app": operator.MonitoringName},
+			Labels:    map[string]string{"app": service2.MonitoringName},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": operator.MonitoringName},
+				MatchLabels: map[string]string{"app": service2.MonitoringName},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      c.name,
 					Namespace: c.namespace,
-					Labels:    map[string]string{"app": operator.MonitoringName},
+					Labels:    map[string]string{"app": service2.MonitoringName},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  operator.MonitoringName,
+							Name:  service2.MonitoringName,
 							Image: fmt.Sprintf("prom/prometheus:%s", obj.Spec.Version),
 							Args: []string{
 								"--config.file=/etc/prometheus/prometheus.yml",
@@ -107,6 +108,30 @@ func (c *deployment) create(ctx context.Context, obj *v1alpha1.PrometheusServer)
 									Name:      "prometheus-storage-volume",
 									MountPath: "/prometheus/",
 								},
+							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
+									Path: "/-/healthy",
+									Port: intstr.FromInt(9090),
+								}},
+								InitialDelaySeconds: 2,
+								TimeoutSeconds:      5,
+							},
+							StartupProbe: &corev1.Probe{ // @TODO: RECONSIDER!
+								ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
+									Path: "/-/ready",
+									Port: intstr.FromInt(9090),
+								}},
+								InitialDelaySeconds: 2,
+								TimeoutSeconds:      5,
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
+									Path: "/-/ready",
+									Port: intstr.FromInt(9090),
+								}},
+								InitialDelaySeconds: 2,
+								TimeoutSeconds:      5,
 							},
 						}},
 					Volumes: []corev1.Volume{

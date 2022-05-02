@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	"github.com/marcosQuesada/prometheus-operator/pkg/operator"
+	service2 "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -14,7 +14,7 @@ import (
 	listersV1 "k8s.io/client-go/listers/core/v1"
 )
 
-const prometheusServiceName = operator.MonitoringName + "-service"
+const prometheusServiceName = service2.MonitoringName + "-service"
 
 type service struct {
 	client    kubernetes.Interface
@@ -27,13 +27,13 @@ func NewService(cl kubernetes.Interface, l listersV1.ServiceLister) *service {
 	return &service{
 		client:    cl,
 		lister:    l,
-		namespace: operator.MonitoringNamespace,
+		namespace: service2.MonitoringNamespace,
 		name:      prometheusServiceName,
 	}
 }
 
 func (c *service) EnsureCreation(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
-	_, err := c.lister.Services(c.namespace).Get(c.name)
+	svc, err := c.lister.Services(c.namespace).Get(c.name)
 	if apierrors.IsNotFound(err) {
 		return c.create(ctx, obj)
 	}
@@ -42,6 +42,7 @@ func (c *service) EnsureCreation(ctx context.Context, obj *v1alpha1.PrometheusSe
 		return fmt.Errorf("unable to get config map %v", err)
 	}
 
+	log.Infof("Ensurecreation without errors, conditions %v", svc.Status.Conditions)
 	return nil
 }
 
@@ -67,9 +68,9 @@ func (c *service) create(ctx context.Context, obj *v1alpha1.PrometheusServer) er
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      prometheusServiceName,
-			Namespace: operator.MonitoringNamespace,
+			Namespace: service2.MonitoringNamespace,
 			Annotations: map[string]string{
-				"prometheus.io/scrape": "true",
+				"prometheus.io/scrape": "true", // @TODO: HERE!
 				"prometheus.io/port":   "9090",
 			},
 		},

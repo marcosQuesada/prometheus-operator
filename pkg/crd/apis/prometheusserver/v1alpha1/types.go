@@ -19,6 +19,7 @@ const (
 	Initializing = "INITIALIZING"
 	Waiting      = "WAITING"
 	Running      = "RUNNING" // @TODO: ACTIVE ¿?
+	Refreshing   = "REFRESHING"
 	Terminating  = "TERMINATING"
 )
 
