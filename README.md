@@ -39,3 +39,14 @@ While we don’t want to force a certain structure to your presentation, we have
 ```
 vendor/k8s.io/code-generator/generate-groups.sh all github.com/marcosQuesada/prometheus-operator/pkg/crd/generated github.com/marcosQuesada/prometheus-operator/pkg/crd/apis "prometheusserver:v1alpha1" --go-header-file ./hack/boilerplate.go.txt --output-base "$(dirname "${BASH_SOURCE[0]}")/" -v 10 
 ```
+
+```
+docker build -t prometheus-operator . --build-arg COMMIT=$(git rev-list -1 HEAD) --build-arg DATE=$(date +%m-%d-%Y)
+
+```
+
+### TODOs
+- timers
+- minikube restrictions (ImagePullPolicy...)
+- metrics
+- 

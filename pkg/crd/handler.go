@@ -23,7 +23,7 @@ type Handler struct {
 	mutex      sync.RWMutex
 }
 
-// NewHandler instantiates swarm handler
+// NewHandler instantiates prometheus server handler
 func NewHandler(c controller) *Handler {
 	return &Handler{
 		controller: c,

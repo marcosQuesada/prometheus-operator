@@ -7,13 +7,14 @@ import (
 	cfg "github.com/marcosQuesada/prometheus-operator/pkg/config"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
+	crdinformers "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/informers/externalversions"
+	ht "github.com/marcosQuesada/prometheus-operator/pkg/http/handler"
 	"github.com/marcosQuesada/prometheus-operator/pkg/operator"
 	"github.com/marcosQuesada/prometheus-operator/pkg/service"
 	resource2 "github.com/marcosQuesada/prometheus-operator/pkg/service/resource"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
-
-	crdinformers "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/informers/externalversions"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -28,48 +29,73 @@ import (
 var externalCmd = &cobra.Command{
 	Use:   "external",
 	Short: "prometheus server external controller, useful on development path",
-	Long:  `prometheus server external controller balance configured keys between swarm peers, useful on development path`,
+	Long:  `prometheus server external controller development version, useful on development path`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Infof("controller external listening on namespace %s label %s Version %s release date %s http server on port %s", namespace, watchLabel, cfg.Commit, cfg.Date, cfg.HttpPort)
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+
 		clientSet := operator.BuildExternalClient()
 		pmClientSet := crd.BuildPrometheusServerExternalClient()
 
 		api := operator.BuildAPIExternalClient()
 		m := crd.NewManager(api)
 		if err := crd.NewBuilder(m).EnsureCRDRegistered(); err != nil {
-			log.Fatalf("unable to check swarm crd status, error %v", err)
+			log.Fatalf("unable to ensure prometheus server crd registration, error %v", err)
 		}
 
 		crdif := crdinformers.NewSharedInformerFactory(pmClientSet, time.Second*8)
 		sif := informers.NewSharedInformerFactory(clientSet, 0)
 
 		ps := crdif.K8slab().V1alpha1().PrometheusServers()
-		ns := sif.Core().V1().Namespaces()
 		cr := sif.Rbac().V1().ClusterRoles()
 		crb := sif.Rbac().V1().ClusterRoleBindings()
 		cm := sif.Core().V1().ConfigMaps()
 		dpl := sif.Apps().V1().Deployments()
 		svc := sif.Core().V1().Services()
 
-		psi := ps.Informer()
-		nsi := ns.Informer()
-		cli := cr.Informer()
-		clbi := crb.Informer()
-		cmi := cm.Informer()
-		dpli := dpl.Informer()
-		svci := svc.Informer()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		crdif.Start(ctx.Done())
 		sif.Start(ctx.Done())
 
-		if !cache.WaitForNamedCacheSync(v1alpha1.CrdKind, ctx.Done(), nsi.HasSynced, cli.HasSynced, clbi.HasSynced, cmi.HasSynced, psi.HasSynced, dpli.HasSynced, svci.HasSynced) { // @TODO: CHECK!
+		go cr.Informer().Run(ctx.Done())
+		go crb.Informer().Run(ctx.Done())
+		go cm.Informer().Run(ctx.Done())
+		go dpl.Informer().Run(ctx.Done())
+		go svc.Informer().Run(ctx.Done())
+		go ps.Informer().Run(ctx.Done())
+
+		log.Info("Waiting Cluster Role Informer sync")
+		if !cache.WaitForNamedCacheSync("Cluster Role", ctx.Done(), cr.Informer().HasSynced) { // @TODO: CHECK!
+			log.Fatal("unable to sync pod informer")
+		}
+
+		log.Info("Waiting Cluster Role Binding Informer sync")
+		if !cache.WaitForNamedCacheSync("cluster role binding", ctx.Done(), crb.Informer().HasSynced) { // @TODO: CHECK!
+			log.Fatal("unable to sync pod informer")
+		}
+
+		log.Info("Waiting Configmap informer sync")
+		if !cache.WaitForNamedCacheSync("Configmap", ctx.Done(), cm.Informer().HasSynced) { // @TODO: CHECK!
+			log.Fatal("unable to sync pod informer")
+		}
+
+		log.Info("Waiting Deployments informer sync")
+		if !cache.WaitForNamedCacheSync("Deployments", ctx.Done(), dpl.Informer().HasSynced) { // @TODO: CHECK!
+			log.Fatal("unable to sync pod informer")
+		}
+
+		log.Info("Waiting Services informer sync")
+		if !cache.WaitForNamedCacheSync("services", ctx.Done(), svc.Informer().HasSynced) { // @TODO: CHECK!
+			log.Fatal("unable to sync pod informer")
+		}
+
+		log.Info("Waiting Prometheus server informer sync")
+		if !cache.WaitForNamedCacheSync(v1alpha1.CrdKind, ctx.Done(), ps.Informer().HasSynced) { // @TODO: CHECK!
 			log.Fatal("unable to sync pod informer")
 		}
 
 		r := []service.ResourceEnforcer{
-			resource2.NewNamespace(clientSet, ns.Lister()),
 			resource2.NewClusterRole(clientSet, cr.Lister()),
 			resource2.NewClusterRoleBinding(clientSet, crb.Lister()),
 			resource2.NewConfigMap(clientSet, cm.Lister()),
@@ -83,6 +109,10 @@ var externalCmd = &cobra.Command{
 		go swCtl.Run(ctx)
 
 		router := mux.NewRouter()
+		ch := ht.NewChecker(cfg.Commit, cfg.Date)
+		ch.Routes(router)
+		router.Handle("/metrics", promhttp.Handler())
+
 		srv := &http.Server{
 			Addr:         fmt.Sprintf(":%s", cfg.HttpPort),
 			Handler:      router,

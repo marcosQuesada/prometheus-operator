@@ -39,5 +39,5 @@ func (a *Checker) healthHandler(w http.ResponseWriter, r *http.Request) {
 
 // Routes defines router endpoints
 func (a *Checker) Routes(r *mux.Router) {
-	r.HandleFunc(`/internal/health`, a.healthHandler)
+	r.HandleFunc(`/healthz`, a.healthHandler)
 }

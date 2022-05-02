@@ -72,6 +72,10 @@ func (o *operator) Update(ctx context.Context, old, new *v1alpha1.PrometheusServ
 		}
 		return nil
 	case v1alpha1.Running:
+		if old == nil {
+			return nil
+		}
+
 		// @TODO: Quick and dirty, reboot whole environment as quick fix
 		if !Equals(old, new) {
 			if err := o.updateStatus(ctx, new, v1alpha1.Refreshing); err != nil {

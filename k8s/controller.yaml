@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-operator
+  namespace: monitoring
+  labels:
+    app: prometheus-operator
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: prometheus-operator
+  template:
+    metadata:
+      labels:
+        app: prometheus-operator
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '9090'
+    spec:
+      containers:
+        - name: prometheus-operator
+          image: prometheus-operator
+          imagePullPolicy: Never
+          command: [ "/app/prometheus-operator" ]
+          args: [ "internal" ]
+          ports:
+            - containerPort: 9090
+          resources:
+            limits:
+              memory: 0.250G
+              cpu: 100m
+            requests:
+              memory: 0.05G
+              cpu: 5m
+          env:
+            - name: HTTP_PORT
+              value: "9090"
