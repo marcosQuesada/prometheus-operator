@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// PrettifiedFormatter populates mandatory log fields
+// PrettifiedFormatter populates logs with mandatory log fields
 func PrettifiedFormatter() logrus.Formatter {
 	return &logrus.JSONFormatter{
 		TimestampFormat: "2006-01-02T15:04:05.999999",

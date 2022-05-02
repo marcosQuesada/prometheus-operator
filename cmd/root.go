@@ -6,14 +6,17 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"os"
+	"strconv"
+	"time"
 )
 
-const appID = "prometheusserver-operator"
+const appID = "prometheus-operator"
 
 var (
-	namespace            string
-	watchLabel           string
-	workersConfigMapName string
+	namespace      string
+	watchLabel     string
+	workers        int
+	reSyncInterval time.Duration
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -41,18 +44,23 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	cfg.SetCoreFlags(rootCmd, appID)
 
-	rootCmd.PersistentFlags().StringVar(&namespace, "namespace", "swarm", "namespace to listen")
-	if p := os.Getenv("NAMESPACE"); p != "" {
-		namespace = p
+	workers = *rootCmd.PersistentFlags().IntP("workers", "w", 1, "total controller workers")
+	if p := os.Getenv("WORKERS"); p != "" {
+		var err error
+		workers, err = strconv.Atoi(p)
+		if err != nil {
+			log.Fatalf("unable to parse workers env var, error %v", err)
+		}
 	}
 
-	rootCmd.PersistentFlags().StringVar(&watchLabel, "label", "swarm-worker", "label to watch statefulsets and pods")
-	if p := os.Getenv("WATCHED_LABEL"); p != "" {
-		watchLabel = p
+	var i string
+	i = *rootCmd.PersistentFlags().StringP("resync-interval", "r", "5s", "informer resync interval")
+	var err error
+	if p := os.Getenv("RESYNC_INTERVAL"); p != "" {
+		i = p
 	}
-
-	rootCmd.PersistentFlags().StringVar(&workersConfigMapName, "configmap", "swarm-worker-config", "workers configmap name")
-	if p := os.Getenv("WORKERS_CONFIGMAP_NAME"); p != "" {
-		workersConfigMapName = p
+	reSyncInterval, err = time.ParseDuration(i)
+	if err != nil {
+		log.Fatalf("Invalid interval duration %s, error %v", i, err)
 	}
 }

@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/clientset/versioned"
+	v1alpha1Lister "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/listers/prometheusserver/v1alpha1"
 	log "github.com/sirupsen/logrus"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sync"
 )
 
 const MonitoringNamespace = "monitoring"
@@ -19,100 +22,110 @@ type ResourceEnforcer interface {
 }
 
 type operator struct {
-	client   versioned.Interface
-	builders []ResourceEnforcer
+	lister     v1alpha1Lister.PrometheusServerLister
+	client     versioned.Interface
+	builders   []ResourceEnforcer
+	generation map[string]int64 // track CRD generation to allow rollout on new versions
+	mutex      sync.RWMutex
 }
 
-func NewOperator(cl versioned.Interface, b []ResourceEnforcer) *operator {
+func NewOperator(l v1alpha1Lister.PrometheusServerLister, cl versioned.Interface, b []ResourceEnforcer) *operator {
 	return &operator{
-		client:   cl,
-		builders: b,
+		lister:     l,
+		client:     cl,
+		builders:   b,
+		generation: map[string]int64{},
 	}
 }
 
-func (o *operator) Update(ctx context.Context, old, new *v1alpha1.PrometheusServer) error {
-	log.Infof("Update called namespace %s name %s Status %s ", new.Namespace, new.Name, new.Status.Phase)
-	if !new.DeletionTimestamp.IsZero() {
-		return o.Delete(ctx, new)
+func (o *operator) Update(ctx context.Context, namespace, name string) error {
+	ps, err := o.lister.PrometheusServers(namespace).Get(name)
+	if err != nil {
+		return fmt.Errorf("unable to get prometheus server  on namespace %s name %s definition , error %v", namespace, name, err)
+	}
+	log.Infof("Update called namespace %s name %s Status %s ", ps.Namespace, ps.Name, ps.Status.Phase)
+
+	defer o.setGeneration(namespace, name, ps.Generation)
+
+	if !ps.DeletionTimestamp.IsZero() { //  && ps.Status.Phase != v1alpha1.Terminating
+		return o.Delete(ctx, namespace, name)
 	}
 
-	if !new.HasFinalizer(v1alpha1.Name) {
-		if err := o.addFinalizer(ctx, new); err != nil {
+	if !ps.HasFinalizer(v1alpha1.Name) {
+		if err := o.addFinalizer(ctx, ps); err != nil {
 			return fmt.Errorf("unable to add finalizer, error %v", err)
 		}
 		return nil
 	}
 
-	switch new.Status.Phase {
+	switch ps.Status.Phase {
 	case v1alpha1.Empty:
-		if err := o.updateStatus(ctx, new, v1alpha1.Initializing); err != nil {
+		if err := o.updateStatus(ctx, ps, v1alpha1.Initializing); err != nil {
 			return fmt.Errorf("unable to update status, error %v", err)
 		}
 		return nil
 	case v1alpha1.Initializing:
-		log.Infof("Processing Initializing state %s ", new.Status.Phase)
+		log.Infof("Processing Initializing state %s ", ps.Status.Phase)
 		for _, r := range o.builders {
-			if err := r.EnsureCreation(ctx, new); err != nil {
+			if err := r.EnsureCreation(ctx, ps); err != nil {
 				return fmt.Errorf("unable to ensure creation on %s error %v", r.Name(), err)
 			}
 		}
-		if err := o.updateStatus(ctx, new, v1alpha1.Waiting); err != nil {
+		if err := o.updateStatus(ctx, ps, v1alpha1.Waiting); err != nil {
 			return fmt.Errorf("unable to update status, error %v", err)
 		}
 		return nil
 	case v1alpha1.Waiting:
-		log.Infof("Processing state %s", new.Status.Phase)
+		log.Infof("Processing state %s", ps.Status.Phase)
 		for _, r := range o.builders {
-			if err := r.EnsureCreation(ctx, new); err != nil {
+			if err := r.EnsureCreation(ctx, ps); err != nil {
 				return fmt.Errorf("unable to ensure creation on %s error %v", r.Name(), err)
 			}
 		}
-		if err := o.updateStatus(ctx, new, v1alpha1.Running); err != nil {
+		if err := o.updateStatus(ctx, ps, v1alpha1.Running); err != nil {
 			return fmt.Errorf("unable to update status, error %v", err)
 		}
 		return nil
 	case v1alpha1.Running:
-		if old == nil {
+		g := o.getGeneration(namespace, name)
+		log.Infof("Update om Running state with generation %d registered is on %d", ps.Generation, g)
+		if g == ps.Generation || g == 0 {
 			return nil
 		}
 
-		// @TODO: Quick and dirty, reboot whole environment as quick fix
-		if !Equals(old, new) {
-			if err := o.updateStatus(ctx, new, v1alpha1.Refreshing); err != nil {
-				return fmt.Errorf("unable to update status, error %v", err)
-			}
-			return nil
+		if err := o.updateStatus(ctx, ps, v1alpha1.Reloading); err != nil {
+			return fmt.Errorf("unable to update status, error %v", err)
 		}
+		return nil
 
-		// @TODO: Further iterations handle separated cases
-		if old.Spec.Config != new.Spec.Config {
-			// Update ConfigMap && Call Prometheus reload command
-			return nil
-		}
-
-		if old.Spec.Version != new.Spec.Version {
-			// Patch/Update Current Deployment
-			return nil
-		}
-	case v1alpha1.Refreshing: // @TODO: Changes happen too fast....they will need proper scheduling....
-		log.Infof("Refreshing Stack %s", new.Name)
-		if err := o.delete(ctx, new); err != nil {
+	case v1alpha1.Reloading:
+		log.Infof("Reloading Stack %s", ps.Name)
+		if err := o.delete(ctx, ps); err != nil {
 			return err
 		}
 
-		if err := o.updateStatus(ctx, new, v1alpha1.Initializing); err != nil {
+		if err := o.updateStatus(ctx, ps, v1alpha1.Initializing); err != nil {
 			return fmt.Errorf("unable to update status, error %v", err)
 		}
 	case v1alpha1.Terminating:
 		// do nothing
-
 	}
 
 	return nil
 }
 
-func (o *operator) Delete(ctx context.Context, p *v1alpha1.PrometheusServer) error {
-	log.Infof("Delete called namespace %s name %s ", p.Namespace, p.Name)
+func (o *operator) Delete(ctx context.Context, namespace, name string) error {
+	log.Infof("Delete called namespace %s name %s ", namespace, name)
+	defer o.removeGeneration(namespace, name)
+
+	p, err := o.lister.PrometheusServers(namespace).Get(name)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("unable to get prometheus server on namespace %s name %s definition , error %v", namespace, name, err)
+	}
 
 	if p.Status.Phase != v1alpha1.Terminating {
 		if err := o.updateStatus(ctx, p, v1alpha1.Terminating); err != nil {
@@ -150,7 +163,6 @@ func (o *operator) delete(ctx context.Context, p *v1alpha1.PrometheusServer) err
 	return nil
 }
 
-// @TODO: Think on segregate it!
 func (o *operator) addFinalizer(ctx context.Context, ps *v1alpha1.PrometheusServer) error {
 	log.Infof("Adding Finalizer from crd %s", ps.Name)
 	ps.Finalizers = append(ps.Finalizers, v1alpha1.Name)
@@ -181,15 +193,28 @@ func (o *operator) updateStatus(ctx context.Context, ps *v1alpha1.PrometheusServ
 	return err
 }
 
-// @TODO: Move to predicates, to allow update status propagation
-func Equals(o, n *v1alpha1.PrometheusServer) bool {
-	if o.Spec.Config != n.Spec.Config {
-		return false
-	}
+func (o *operator) setGeneration(namespace, name string, v int64) {
+	log.Infof("Setting to Registry %s/%s on generation %d", namespace, name, v)
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
 
-	if o.Spec.Version != n.Spec.Version {
-		return false
-	}
+	o.generation[fmt.Sprintf("%s/%s", namespace, name)] = v
+}
 
-	return true
+func (o *operator) removeGeneration(namespace, name string) {
+	log.Infof("Removing from registry %s/%s", namespace, name)
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+
+	delete(o.generation, fmt.Sprintf("%s/%s", namespace, name))
+}
+
+func (o *operator) getGeneration(namespace, name string) int64 {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+	v, ok := o.generation[fmt.Sprintf("%s/%s", namespace, name)]
+	if !ok {
+		return 0
+	}
+	return v
 }

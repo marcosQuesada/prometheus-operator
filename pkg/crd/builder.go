@@ -3,7 +3,6 @@ package crd
 import (
 	"context"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,19 +15,16 @@ import (
 const pollFrequency = time.Second
 const pollTimeout = 10 * time.Second
 
-type Initializer interface {
-	Create(ctx context.Context, cr *v1.CustomResourceDefinition) error
-	IsAccepted(ctx context.Context, resourceName string) (bool, error)
-}
-
 type manager struct {
 	apiExtensionsClientSet apiextensionsclientset.Interface
 }
 
+// NewManager instantiates initializer
 func NewManager(api apiextensionsclientset.Interface) Initializer {
 	return &manager{apiExtensionsClientSet: api}
 }
 
+// Create will check CRD existence, if not found it will create it and wait until accepted
 func (c *manager) Create(ctx context.Context, cr *v1.CustomResourceDefinition) error {
 	_, err := c.apiExtensionsClientSet.ApiextensionsV1().CustomResourceDefinitions().Create(ctx, cr, metav1.CreateOptions{})
 
@@ -39,6 +35,7 @@ func (c *manager) Create(ctx context.Context, cr *v1.CustomResourceDefinition) e
 	return c.waitCRDAccepted(ctx, cr.Name)
 }
 
+// IsAccepted checks if CRD is accepted
 func (c *manager) IsAccepted(ctx context.Context, resourceName string) (bool, error) {
 	cr, err := c.apiExtensionsClientSet.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, resourceName, metav1.GetOptions{})
 	if _, ok := err.(*apiErrors.StatusError); ok {
@@ -48,7 +45,6 @@ func (c *manager) IsAccepted(ctx context.Context, resourceName string) (bool, er
 		return false, err
 	}
 
-	spew.Dump(cr.Status.Conditions)
 	for _, condition := range cr.Status.Conditions {
 		if condition.Type == v1.Established &&
 			condition.Status == v1.ConditionTrue {

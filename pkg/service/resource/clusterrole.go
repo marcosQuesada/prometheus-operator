@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	service2 "github.com/marcosQuesada/prometheus-operator/pkg/service"
+	svc "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	rbac "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,7 +13,8 @@ import (
 	listersV1 "k8s.io/client-go/listers/rbac/v1"
 )
 
-const clusterRoleName = service2.MonitoringName + "-role"
+const clusterRoleName = svc.MonitoringName + "-role"
+const clusterRoleResourceName = "clusterroles"
 
 type clusterRole struct {
 	client kubernetes.Interface
@@ -21,7 +22,8 @@ type clusterRole struct {
 	name   string
 }
 
-func NewClusterRole(cl kubernetes.Interface, l listersV1.ClusterRoleLister) *clusterRole {
+// NewClusterRole instantiates cluster role resource enforcer
+func NewClusterRole(cl kubernetes.Interface, l listersV1.ClusterRoleLister) svc.ResourceEnforcer {
 	return &clusterRole{
 		client: cl,
 		lister: l,
@@ -29,6 +31,7 @@ func NewClusterRole(cl kubernetes.Interface, l listersV1.ClusterRoleLister) *clu
 	}
 }
 
+// EnsureCreation checks cluster role existence, if it's not found it will create it
 func (c *clusterRole) EnsureCreation(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
 	_, err := c.lister.Get(c.name)
 	if apierrors.IsNotFound(err) {
@@ -36,12 +39,13 @@ func (c *clusterRole) EnsureCreation(ctx context.Context, obj *v1alpha1.Promethe
 	}
 
 	if err != nil {
-		return fmt.Errorf("unable to get config map %v", err)
+		return fmt.Errorf("unable to get cluster role %v", err)
 	}
 
 	return nil
 }
 
+// EnsureDeletion checks cluster role existence, if it's it will delete it
 func (c *clusterRole) EnsureDeletion(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
 	log.Infof("removing cluster role %s", c.name)
 	err := c.client.RbacV1().ClusterRoles().Delete(ctx, c.name, metav1.DeleteOptions{})
@@ -49,13 +53,28 @@ func (c *clusterRole) EnsureDeletion(ctx context.Context, obj *v1alpha1.Promethe
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("unable to delete configmap, error %w", err)
+		return fmt.Errorf("unable to delete cluster role, error %w", err)
 	}
 	return nil
 }
 
+// @TODO: HERE !
+func (c *clusterRole) Exists() (bool, error) {
+	_, err := c.lister.Get(c.name)
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("unable to get cluster role %v", err)
+	}
+
+	return true, nil
+}
+
+// Name returns resource enforcer target name
 func (c *clusterRole) Name() string {
-	return "clusterrole"
+	return clusterRoleResourceName
 }
 
 func (c *clusterRole) create(ctx context.Context, obj *v1alpha1.PrometheusServer) error {

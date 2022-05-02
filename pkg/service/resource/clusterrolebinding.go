@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	service2 "github.com/marcosQuesada/prometheus-operator/pkg/service"
+	svc "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	rbac "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,7 +13,10 @@ import (
 	listersV1 "k8s.io/client-go/listers/rbac/v1"
 )
 
-const clusterRoleBindingName = service2.MonitoringName + "-role-binding"
+const clusterRoleBindingResourceName = "clusterrolebindings"
+const clusterRoleBindingName = svc.MonitoringName + "-role-binding"
+const rbacApiGroup = "rbac.authorization.k8s.io"
+const serviceAccount = "ServiceAccount"
 
 type clusterRoleBinding struct {
 	client kubernetes.Interface
@@ -21,7 +24,8 @@ type clusterRoleBinding struct {
 	name   string
 }
 
-func NewClusterRoleBinding(cl kubernetes.Interface, l listersV1.ClusterRoleBindingLister) *clusterRoleBinding {
+// NewClusterRoleBinding instantiates cluster role binding resource enforcer
+func NewClusterRoleBinding(cl kubernetes.Interface, l listersV1.ClusterRoleBindingLister) svc.ResourceEnforcer {
 	return &clusterRoleBinding{
 		client: cl,
 		lister: l,
@@ -29,6 +33,7 @@ func NewClusterRoleBinding(cl kubernetes.Interface, l listersV1.ClusterRoleBindi
 	}
 }
 
+// EnsureCreation checks cluster role binding existence, if it's not found it will create it
 func (c *clusterRoleBinding) EnsureCreation(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
 	_, err := c.lister.Get(c.name)
 	if apierrors.IsNotFound(err) {
@@ -36,12 +41,13 @@ func (c *clusterRoleBinding) EnsureCreation(ctx context.Context, obj *v1alpha1.P
 	}
 
 	if err != nil {
-		return fmt.Errorf("unable to get config map %v", err)
+		return fmt.Errorf("unable to get cluster role bindings %v", err)
 	}
 
 	return nil
 }
 
+// EnsureDeletion checks cluster role binding existence, if it's it will delete it
 func (c *clusterRoleBinding) EnsureDeletion(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
 	log.Infof("removing cluster role binding %s", c.name)
 	err := c.client.RbacV1().ClusterRoleBindings().Delete(ctx, c.name, metav1.DeleteOptions{})
@@ -50,13 +56,14 @@ func (c *clusterRoleBinding) EnsureDeletion(ctx context.Context, obj *v1alpha1.P
 	}
 
 	if err != nil {
-		return fmt.Errorf("unable to delete configmap, error %w", err)
+		return fmt.Errorf("unable to delete cluster role bindings, error %w", err)
 	}
 	return nil
 }
 
+// Name returns resource enforcer target name
 func (c *clusterRoleBinding) Name() string {
-	return "clusterrolebinding"
+	return clusterRoleBindingResourceName
 }
 
 func (c *clusterRoleBinding) create(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
@@ -67,15 +74,15 @@ func (c *clusterRoleBinding) create(ctx context.Context, obj *v1alpha1.Prometheu
 			Name: c.name,
 		},
 		RoleRef: rbac.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
+			APIGroup: rbacApiGroup,
 			Kind:     "ClusterRole",
-			Name:     clusterRoleName, // @TODO: SURE?
+			Name:     clusterRoleName,
 		},
 		Subjects: []rbac.Subject{
 			{
-				Kind:      "ServiceAccount",
+				Kind:      serviceAccount,
 				Name:      "default",
-				Namespace: service2.MonitoringNamespace,
+				Namespace: svc.MonitoringNamespace,
 			},
 		},
 	}

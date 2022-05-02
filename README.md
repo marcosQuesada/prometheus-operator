@@ -47,6 +47,48 @@ docker build -t prometheus-operator . --build-arg COMMIT=$(git rev-list -1 HEAD)
 
 ### TODOs
 - timers
+- project structure
 - minikube restrictions (ImagePullPolicy...)
 - metrics
-- 
+- eventRecorder
+- worker pool size
+- OwnerRef
+- admission webhook (limit to 1 CRD, reject all others)
+- rise up unrecoverable errors
+  - no resources in cluster example
+  - those can be implemented on reconciliation loop as state jumps too
+- Prometheus-Server limitations
+  - Volatile volume
+  - Vanilla definition
+    - more elaborated ones as federation not allowed
+- No Kubebuilder
+  - controller internals focus 
+  - narrow operator implementation
+    - easy path
+    - does not real wait
+
+### Notes
+Periodic resync
+```
+  if newPs.ResourceVersion == oldPs.ResourceVersion {
+      // Periodic resync will send update events for all known prometheus servers.
+      // Two different versions of the same prometheus servers will always have different RVs.
+      return
+  }
+
+```
+Fine Grained Updates
+```
+		
+		//
+		//// @TODO: Further iterations handle separated cases
+		//if old.Spec.Config != ps.Spec.Config {
+		//	// Update ConfigMap && Call Prometheus reload command
+		//	return nil
+		//}
+		//
+		//if old.Spec.Version != ps.Spec.Version {
+		//	// Patch/Update Current Deployment
+		//	return nil
+		//}
+```

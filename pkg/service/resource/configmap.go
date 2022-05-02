@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	service2 "github.com/marcosQuesada/prometheus-operator/pkg/service"
+	svc "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,8 +13,9 @@ import (
 	listersV1 "k8s.io/client-go/listers/core/v1"
 )
 
-const prometheusConfigMapName = service2.MonitoringName + "-config"
+const prometheusConfigMapName = svc.MonitoringName + "-config"
 const prometheusConfigMapKey = "prometheus.yml"
+const configMapResourceName = "configmaps"
 
 type configMap struct {
 	client    kubernetes.Interface
@@ -23,15 +24,17 @@ type configMap struct {
 	name      string
 }
 
-func NewConfigMap(cl kubernetes.Interface, l listersV1.ConfigMapLister) *configMap {
+// NewConfigMap instantiates configmap resource enforcer
+func NewConfigMap(cl kubernetes.Interface, l listersV1.ConfigMapLister) svc.ResourceEnforcer {
 	return &configMap{
 		client:    cl,
 		lister:    l,
-		namespace: service2.MonitoringNamespace,
+		namespace: svc.MonitoringNamespace,
 		name:      prometheusConfigMapName,
 	}
 }
 
+// EnsureCreation checks configmap existence, if it's not found it will create it
 func (c *configMap) EnsureCreation(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
 	_, err := c.lister.ConfigMaps(c.namespace).Get(c.name)
 	if apierrors.IsNotFound(err) {
@@ -45,10 +48,7 @@ func (c *configMap) EnsureCreation(ctx context.Context, obj *v1alpha1.Prometheus
 	return nil
 }
 
-func (c *configMap) Name() string {
-	return "configmap" // @TODO: THIS as constant
-}
-
+// EnsureDeletion checks configmap existence, if it's it will delete it
 func (c *configMap) EnsureDeletion(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
 	log.Infof("removing configmap  %s", c.name)
 	err := c.client.CoreV1().ConfigMaps(c.namespace).Delete(ctx, prometheusConfigMapName, metav1.DeleteOptions{})
@@ -59,6 +59,11 @@ func (c *configMap) EnsureDeletion(ctx context.Context, obj *v1alpha1.Prometheus
 		return fmt.Errorf("unable to delete configmap, error %w", err)
 	}
 	return nil
+}
+
+// Name returns resource enforcer target name
+func (c *configMap) Name() string {
+	return configMapResourceName
 }
 
 func (c *configMap) create(ctx context.Context, obj *v1alpha1.PrometheusServer) error {

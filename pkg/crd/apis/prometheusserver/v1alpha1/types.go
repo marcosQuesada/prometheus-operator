@@ -18,8 +18,8 @@ const (
 	Empty        = ""
 	Initializing = "INITIALIZING"
 	Waiting      = "WAITING"
-	Running      = "RUNNING" // @TODO: ACTIVE ¿?
-	Refreshing   = "REFRESHING"
+	Running      = "RUNNING"
+	Reloading    = "RELOADING"
 	Terminating  = "TERMINATING"
 )
 
@@ -37,7 +37,7 @@ type PrometheusServerSpec struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PrometheusServer runs a command PrometheusServer a given schedule.
+// PrometheusServer handles Prometheus Server stack.
 type PrometheusServer struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

@@ -2,30 +2,110 @@ package service
 
 import (
 	"context"
-	"github.com/marcosQuesada/prometheus-operator/pkg/crd"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	op "github.com/marcosQuesada/prometheus-operator/pkg/operator"
-	"github.com/marcosQuesada/prometheus-operator/pkg/service/resource"
+	crdFake "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/clientset/versioned/fake"
+	crdinformers "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/informers"
+	k8stest "k8s.io/client-go/testing"
 	"testing"
-	"time"
 )
 
-func TestAddFinalizer(t *testing.T) {
+func TestITAddsFinalizerOnPrometheusServer(t *testing.T) {
+	namespace := "default"
+	name := "prometheus-server-crd"
+	ps := getFakePrometheusServer(namespace, name)
+	if ps.HasFinalizer(v1alpha1.Name) {
+		t.Fatal("not expected to find finalizer")
+	}
 
+	pmClientSet := crdFake.NewSimpleClientset(ps)
+	crdInf := crdinformers.NewSharedInformerFactory(pmClientSet, 0)
+	pi := crdInf.K8slab().V1alpha1().PrometheusServers()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go crdInf.Start(ctx.Done())
+
+	r := []ResourceEnforcer{}
+	o := NewOperator(pi.Lister(), pmClientSet, r)
+	if err := o.addFinalizer(context.Background(), ps); err != nil {
+		t.Fatalf("unable to add finalizer error %v", err)
+	}
+
+	if !ps.HasFinalizer(v1alpha1.Name) {
+		t.Fatal("expected to find finalizer")
+	}
+}
+func TestITRemovesFinalizerFromPrometheusServer(t *testing.T) {
+	namespace := "default"
+	name := "prometheus-server-crd"
+	ps := getFakePrometheusServer(namespace, name)
+	pmClientSet := crdFake.NewSimpleClientset(ps)
+	crdInf := crdinformers.NewSharedInformerFactory(pmClientSet, 0)
+	pi := crdInf.K8slab().V1alpha1().PrometheusServers()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go crdInf.Start(ctx.Done())
+
+	r := []ResourceEnforcer{}
+	o := NewOperator(pi.Lister(), pmClientSet, r)
+	_ = o.addFinalizer(context.Background(), ps)
+
+	if err := o.removeFinalizer(context.Background(), ps); err != nil {
+		t.Fatalf("unable to remove finalizer error %v", err)
+	}
+
+	if ps.HasFinalizer(v1alpha1.Name) {
+		t.Fatal("not expected to find finalizer")
+	}
+}
+
+func TestItCallsAllEnforcersOnDelete(t *testing.T) {
+	namespace := "default"
+	name := "prometheus-server-crd"
+	ps := getFakePrometheusServer(namespace, name)
+	fre := &FakeResourceEnforcer{}
+	r := []ResourceEnforcer{fre}
+	o := NewOperator(nil, nil, r)
+	if err := o.delete(context.Background(), ps); err != nil {
+		t.Fatalf("unapected error deleting resources, error %v", err)
+	}
+
+	if expected, got := 1, fre.deletion; expected != got {
+		t.Fatalf("unexpected resource, expected %d got %d", expected, got)
+	}
 }
 
 func TestRemoveFinalizer(t *testing.T) {
 	namespace := "default"
 	name := "prometheus-server-crd"
-	pmClientSet := crd.BuildPrometheusServerExternalClient()
-
-	r := []ResourceEnforcer{}
-	o := NewOperator(pmClientSet, r)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second+2)
+	pm := &v1alpha1.PrometheusServer{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.PrometheusServerSpec{
+			Version: "v0.0.1",
+			Config:  "fakeConfigContent",
+		},
+		Status: v1alpha1.Status{},
+	}
+	pmClientSet := crdFake.NewSimpleClientset(pm)
+	crdInf := crdinformers.NewSharedInformerFactory(pmClientSet, 0)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	pi := crdInf.K8slab().V1alpha1().PrometheusServers()
+
+	ps := getFakePrometheusServer(namespace, name)
+	if err := pi.Informer().GetIndexer().Add(ps); err != nil {
+		t.Fatalf("unable to add entry to indexer %v", err)
+	}
+
+	fre := &FakeResourceEnforcer{}
+	r := []ResourceEnforcer{fre}
+	o := NewOperator(pi.Lister(), pmClientSet, r)
+
 	ps, err := pmClientSet.K8slabV1alpha1().PrometheusServers(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("unable to get Ps, error %v", err)
@@ -34,216 +114,153 @@ func TestRemoveFinalizer(t *testing.T) {
 	if err := o.removeFinalizer(ctx, ps); err != nil {
 		t.Fatalf("unexpected error removing finalizer on %s error %v", name, err)
 	}
+	if ps.HasFinalizer(v1alpha1.Name) {
+		t.Fatal("no finalizer expected")
+	}
 }
 
-func TestFullStackCreation(t *testing.T) {
-	clientSet := op.BuildExternalClient()
-	pmClientSet := crd.BuildPrometheusServerExternalClient()
-	sif := informers.NewSharedInformerFactory(clientSet, 0)
-
-	r := []ResourceEnforcer{
-		resource.NewClusterRole(clientSet, sif.Rbac().V1().ClusterRoles().Lister()),
-		resource.NewClusterRoleBinding(clientSet, sif.Rbac().V1().ClusterRoleBindings().Lister()),
-		resource.NewConfigMap(clientSet, sif.Core().V1().ConfigMaps().Lister()),
-		resource.NewDeployment(clientSet, sif.Apps().V1().Deployments().Lister()),
-		resource.NewService(clientSet, sif.Core().V1().Services().Lister()),
-	}
-	o := NewOperator(pmClientSet, r)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-	defer cancel()
-	p := &v1alpha1.PrometheusServer{
-
-		Spec: v1alpha1.PrometheusServerSpec{
-			Version: "0.0.1",
-			Config:  cfg,
+func TestItAddsFinalizerOnUpdatingPrometheusServerDefinition(t *testing.T) {
+	namespace := "default"
+	name := "prometheus-server-crd"
+	pm := &v1alpha1.PrometheusServer{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
 		},
+		Spec: v1alpha1.PrometheusServerSpec{
+			Version: "v0.0.1",
+			Config:  "fakeConfigContent",
+		},
+		Status: v1alpha1.Status{},
 	}
-	if err := o.Update(ctx, nil, p); err != nil {
+	pmClientSet := crdFake.NewSimpleClientset(pm)
+	crdInf := crdinformers.NewSharedInformerFactory(pmClientSet, 0)
+	pi := crdInf.K8slab().V1alpha1().PrometheusServers().Informer()
+
+	if err := pi.GetIndexer().Add(pm); err != nil {
+		t.Fatalf("unable to add crd to indexer, error %v", err)
+	}
+
+	r := []ResourceEnforcer{}
+	o := NewOperator(crdInf.K8slab().V1alpha1().PrometheusServers().Lister(), pmClientSet, r)
+	if err := o.Update(context.Background(), namespace, name); err != nil {
 		t.Fatalf("unaexpected error updating, error %v", err)
 	}
+	clActions := pmClientSet.Actions()
+	if expected, got := 1, len(clActions); expected != got {
+		t.Fatalf("unexpected total actions executed, expected %d got %d", expected, got)
+	}
+
+	action := clActions[0]
+	if expected, got := "update", action.GetVerb(); expected != got {
+		t.Fatalf("unexpected verb, expected %s got %s", expected, got)
+	}
+	if expected, got := v1alpha1.Plural, action.GetResource().Resource; expected != got {
+		t.Fatalf("unexpected resource, expected %s got %s", expected, got)
+	}
+
+	v, ok := action.(k8stest.UpdateAction)
+	if !ok {
+		t.Fatalf("unexpected type got %T", action)
+	}
+	ps, ok := v.GetObject().(*v1alpha1.PrometheusServer)
+	if !ok {
+		t.Fatalf("unexpected type got %T", v.GetObject())
+	}
+	if !ps.HasFinalizer(v1alpha1.Name) {
+		t.Fatal("expected to find finalizer")
+	}
 }
 
-func TestFullStackDeletion(t *testing.T) {
-	clientSet := op.BuildExternalClient()
-	pmClientSet := crd.BuildPrometheusServerExternalClient()
-	sif := informers.NewSharedInformerFactory(clientSet, 0)
-
-	r := []ResourceEnforcer{
-		resource.NewClusterRole(clientSet, sif.Rbac().V1().ClusterRoles().Lister()),
-		resource.NewClusterRoleBinding(clientSet, sif.Rbac().V1().ClusterRoleBindings().Lister()),
-		resource.NewConfigMap(clientSet, sif.Core().V1().ConfigMaps().Lister()),
-		resource.NewDeployment(clientSet, sif.Apps().V1().Deployments().Lister()),
-		resource.NewService(clientSet, sif.Core().V1().Services().Lister()),
-	}
-	o := NewOperator(pmClientSet, r)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-	defer cancel()
-	p := &v1alpha1.PrometheusServer{
-		Spec: v1alpha1.PrometheusServerSpec{
-			Version: "0.0.1",
-			Config:  cfg,
+func TestItUpdatesStateFromInitializingToWaitingFiringResourceEnforcers(t *testing.T) {
+	namespace := "default"
+	name := "prometheus-server-crd"
+	pm := &v1alpha1.PrometheusServer{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       name,
+			Namespace:  namespace,
+			Finalizers: []string{v1alpha1.Name},
 		},
+		Spec: v1alpha1.PrometheusServerSpec{
+			Version: "v0.0.1",
+			Config:  "fakeConfigContent",
+		},
+		Status: v1alpha1.Status{Phase: v1alpha1.Initializing},
 	}
-	if err := o.Delete(ctx, p); err != nil {
+	pmClientSet := crdFake.NewSimpleClientset(pm)
+	crdInf := crdinformers.NewSharedInformerFactory(pmClientSet, 0)
+	pi := crdInf.K8slab().V1alpha1().PrometheusServers().Informer()
+
+	if err := pi.GetIndexer().Add(pm); err != nil {
+		t.Fatalf("unable to add crd to indexer, error %v", err)
+	}
+
+	fre := &FakeResourceEnforcer{}
+	r := []ResourceEnforcer{fre}
+	o := NewOperator(crdInf.K8slab().V1alpha1().PrometheusServers().Lister(), pmClientSet, r)
+	if err := o.Update(context.Background(), namespace, name); err != nil {
 		t.Fatalf("unaexpected error updating, error %v", err)
 	}
+	clActions := pmClientSet.Actions()
+	if expected, got := 1, len(clActions); expected != got {
+		t.Fatalf("unexpected total actions executed, expected %d got %d", expected, got)
+	}
+
+	action := clActions[0]
+	if expected, got := "update", action.GetVerb(); expected != got {
+		t.Fatalf("unexpected verb, expected %s got %s", expected, got)
+	}
+	if expected, got := v1alpha1.Plural, action.GetResource().Resource; expected != got {
+		t.Fatalf("unexpected resource, expected %s got %s", expected, got)
+	}
+	if expected, got := 1, fre.creations; expected != got {
+		t.Fatalf("unexpected resource, expected %d got %d", expected, got)
+	}
+	v, ok := action.(k8stest.UpdateAction)
+	if !ok {
+		t.Fatalf("unexpected type got %T", action)
+	}
+	ps, ok := v.GetObject().(*v1alpha1.PrometheusServer)
+	if !ok {
+		t.Fatalf("unexpected type got %T", v.GetObject())
+	}
+	if expected, got := v1alpha1.Waiting, ps.Status.Phase; expected != got {
+		t.Fatalf("status does not match, expected %s got %s", expected, got)
+	}
 }
 
-var cfg = `
-   global:
-     scrape_interval: 5s
-     evaluation_interval: 5s
-   rule_files:
-     - /etc/prometheus/prometheus.rules
-   alerting:
-     alertmanagers:
-     - scheme: http
-       static_configs:
-       - targets:
-         - "alertmanager.monitoring.svc:9093"
+func getFakePrometheusServer(namespace, name string) *v1alpha1.PrometheusServer {
+	return &v1alpha1.PrometheusServer{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.PrometheusServerSpec{
+			Version: "v0.0.1",
+			Config:  "fakeConfigContent",
+		},
+		Status: v1alpha1.Status{},
+	}
+}
 
-   scrape_configs:
-     - job_name: 'node-exporter'
-       kubernetes_sd_configs:
-         - role: endpoints
-       relabel_configs:
-       - source_labels: [__meta_kubernetes_endpoints_name]
-         regex: 'node-exporter'
-         action: keep
+type FakeResourceEnforcer struct {
+	creations int
+	deletion  int
+}
 
-     - job_name: 'kubernetes-apiservers'
+func (f *FakeResourceEnforcer) EnsureCreation(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
+	f.creations++
+	return nil
+}
 
-       kubernetes_sd_configs:
-       - role: endpoints
-       scheme: https
+func (f *FakeResourceEnforcer) EnsureDeletion(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
+	f.deletion++
+	return nil
+}
 
-       tls_config:
-         ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-       bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-
-       relabel_configs:
-       - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
-         action: keep
-         regex: default;kubernetes;https
-
-     - job_name: 'kubernetes-nodes'
-
-       scheme: https
-
-       tls_config:
-         ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-       bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-
-       kubernetes_sd_configs:
-       - role: node
-
-       relabel_configs:
-       - action: labelmap
-         regex: __meta_kubernetes_node_label_(.+)
-       - target_label: __address__
-         replacement: kubernetes.default.svc:443
-       - source_labels: [__meta_kubernetes_node_name]
-         regex: (.+)
-         target_label: __metrics_path__
-         replacement: /api/v1/nodes/${1}/proxy/metrics
-
-     - job_name: 'kubernetes-pods'
-
-       kubernetes_sd_configs:
-       - role: pod
-
-       relabel_configs:
-       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-         action: keep
-         regex: true
-       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-         action: replace
-         target_label: __metrics_path__
-         regex: (.+)
-       - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-         action: replace
-         regex: ([^:]+)(?::\d+)?;(\d+)
-         replacement: $1:$2
-         target_label: __address__
-       - action: labelmap
-         regex: __meta_kubernetes_pod_label_(.+)
-       - source_labels: [__meta_kubernetes_namespace]
-         action: replace
-         target_label: kubernetes_namespace
-       - source_labels: [__meta_kubernetes_pod_name]
-         action: replace
-         target_label: kubernetes_pod_name
-
-     - job_name: 'kube-state-metrics'
-       static_configs:
-         - targets: ['kube-state-metrics.kube-system.svc.cluster.local:8080']
-
-     - job_name: 'kubernetes-cadvisor'
-
-       scheme: https
-
-       tls_config:
-         ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-       bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-
-       kubernetes_sd_configs:
-       - role: node
-
-       relabel_configs:
-       - action: labelmap
-         regex: __meta_kubernetes_node_label_(.+)
-       - target_label: __address__
-         replacement: kubernetes.default.svc:443
-       - source_labels: [__meta_kubernetes_node_name]
-         regex: (.+)
-         target_label: __metrics_path__
-         replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
-
-     - job_name: 'kubernetes-service-endpoints'
-
-       kubernetes_sd_configs:
-       - role: endpoints
-
-       relabel_configs:
-       - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
-         action: keep
-         regex: true
-       - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
-         action: replace
-         target_label: __scheme__
-         regex: (https?)
-       - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
-         action: replace
-         target_label: __metrics_path__
-         regex: (.+)
-       - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
-         action: replace
-         target_label: __address__
-         regex: ([^:]+)(?::\d+)?;(\d+)
-         replacement: $1:$2
-       - action: labelmap
-         regex: __meta_kubernetes_service_label_(.+)
-       - source_labels: [__meta_kubernetes_namespace]
-         action: replace
-         target_label: kubernetes_namespace
-       - source_labels: [__meta_kubernetes_service_name]
-         action: replace
-         target_label: kubernetes_name
-`
-
-//func TestAddFinalizer(t *testing.T) {
-//	namespace := "default"
-//	name := "prometheus-server-crd"
-//	p := &v1alpha1.PrometheusServer{
-//		ObjectMeta: metav1.ObjectMeta{
-//			Namespace: namespace,
-//			Name: name,
-//			Finalizers:
-//		},
-//		Spec: v1alpha1.PrometheusServerSpec{
-//			Version: "0.0.1",
-//			Config:  cfg,
-//		},
-//		Status:     v1alpha1.Status{},
-//	}
-//}
+func (f *FakeResourceEnforcer) Name() string {
+	return "fake"
+}

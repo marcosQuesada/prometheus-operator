@@ -8,8 +8,8 @@ import (
 	"os"
 )
 
-// BuilBuildPrometheusServerInternalClient instantiates internal prometheus-server client
-func BuilBuildPrometheusServerInternalClient() versioned.Interface {
+// BuildPrometheusServerInternalClient instantiates internal prometheus-server client
+func BuildPrometheusServerInternalClient() versioned.Interface {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		log.Fatalf("unable to get In cluster config, error %v", err)

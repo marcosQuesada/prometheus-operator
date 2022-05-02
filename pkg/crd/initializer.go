@@ -4,21 +4,50 @@ import (
 	"context"
 	"fmt"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
+	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type builder struct {
+// Initializer iw responsible on ensuring CRD is registered on api-server
+type Initializer interface {
+	Create(ctx context.Context, cr *v1.CustomResourceDefinition) error
+	IsAccepted(ctx context.Context, resourceName string) (bool, error)
+}
+
+type Builder struct {
 	initializer Initializer
 }
 
-func NewBuilder(i Initializer) *builder {
-	return &builder{
+// NewBuilder its responsible for initialize CRD on cluster
+func NewBuilder(i Initializer) *Builder {
+	return &Builder{
 		initializer: i,
 	}
 }
 
-func (b *builder) Create(ctx context.Context) error {
+// EnsureCRDRegistration ensures CRD is created, if it didn't it will force creation
+func (b *Builder) EnsureCRDRegistration(ctx context.Context) error {
+	log.Info("Ensuring crd is registered")
+	acc, err := b.initializer.IsAccepted(ctx, v1alpha1.Name)
+	if err != nil {
+		return fmt.Errorf("unable to check crd status, error %v", err)
+	}
+
+	if acc {
+		return nil
+	}
+
+	if err := b.create(context.Background()); err != nil {
+		return fmt.Errorf("unable to initialize crd, error %v", err)
+	}
+
+	return nil
+}
+
+// Create defines PrometheusServer CRD resource
+func (b *Builder) create(ctx context.Context) error {
+	log.Info("Creating Prometheus Server CRD")
 	cr := &v1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: v1alpha1.Name,
@@ -62,11 +91,6 @@ func (b *builder) Create(ctx context.Context) error {
 							Type:     "string",
 							JSONPath: ".spec.version",
 						},
-						//{
-						//	Name:     "Config",
-						//	Type:     "string",
-						//	JSONPath: ".spec.config",
-						//},
 						{
 							Name:     "Age",
 							Type:     "date",
@@ -91,24 +115,4 @@ func (b *builder) Create(ctx context.Context) error {
 	}
 
 	return b.initializer.Create(ctx, cr)
-}
-
-func (b *builder) IsAccepted(ctx context.Context) (bool, error) {
-	return b.initializer.IsAccepted(ctx, v1alpha1.Name)
-}
-
-func (b *builder) EnsureCRDRegistered() error {
-	acc, err := b.IsAccepted(context.Background())
-	if err != nil {
-		return fmt.Errorf("unable to check swarm crd status, error %v", err)
-	}
-	if acc {
-		return nil
-	}
-
-	if err := b.Create(context.Background()); err != nil {
-		return fmt.Errorf("unable to initialize swarm crd, error %v", err)
-	}
-
-	return nil
 }

@@ -2,65 +2,56 @@ package operator
 
 import (
 	"context"
-	"fmt"
-	apiv1 "k8s.io/api/core/v1"
+	"errors"
+	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
+	crdFake "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/clientset/versioned/fake"
+	crdinformers "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 	"sync/atomic"
 	"testing"
 	"time"
 )
 
-func TestController_ItGetsCreatedOnListeningPodsWithPodAddition(t *testing.T) {
+func TestControllerItGetsCreatedOnListeningPodsWithPodAddition(t *testing.T) {
 	namespace := "default"
 	name := "foo"
 	eh := &fakeHandler{}
-	p := getFakePod(namespace, name)
-	cl := fake.NewSimpleClientset(p)
-	i := informers.NewSharedInformerFactory(cl, 0)
-	pi := i.Core().V1().Pods()
-	fr := &fakeRunner{}
-	ctl := New(eh, pi.Informer(), fr, "Pod")
+	p := getFakePrometheusServer(namespace, name)
+	pmClientSet := crdFake.NewSimpleClientset(p)
+	crdInf := crdinformers.NewSharedInformerFactory(pmClientSet, 0)
+	pi := crdInf.K8slab().V1alpha1().PrometheusServers().Informer()
+	ctl := NewController(eh, pi)
+	ctl.workerFrequency = time.Millisecond * 50
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go ctl.Run(ctx)
 
-	if err := pi.Informer().GetIndexer().Add(p); err != nil {
-		t.Fatalf("unable to add entry to indexer,error %v", err)
-	}
+	go ctl.Run(ctx, 1)
+	go crdInf.Start(ctx.Done())
 
-	keys := pi.Informer().GetIndexer().ListKeys()
-	if expected, got := 1, len(keys); expected != got {
-		t.Fatalf("handled size does not match, expected %d got %d", expected, got)
-	}
-
-	if expected, got := fmt.Sprintf("%s/%s", namespace, name), keys[0]; expected != got {
-		t.Fatalf("keys do not match, expected %s got %s", expected, got)
-	}
+	cache.WaitForCacheSync(ctx.Done(), pi.HasSynced)
 
 	// informer runner needs time @TODO: think on a real synced solution
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond * 200)
 
-	if expected, got := 1, eh.created(); expected != int(got) {
+	if expected, got := 1, eh.updated(); expected != int(got) {
 		t.Errorf("calls do not match, expected %d got %d", expected, got)
 	}
 	if expected, got := 0, eh.deleted(); expected != int(got) {
 		t.Errorf("calls do not match, expected %d got %d", expected, got)
 	}
 
-	gvr := schema.GroupVersionResource{Resource: "pods"}
-	gvk := schema.GroupVersionKind{Group: "apps", Version: "v1"}
+	gvr := schema.GroupVersionResource{Resource: "prometheusservers"}
+	gvk := schema.GroupVersionKind{Group: "k8slab.info", Version: "v1alpha1"}
 	actions := []core.Action{
 		core.NewListAction(gvr, gvk, namespace, metav1.ListOptions{}),
 		core.NewWatchAction(gvr, namespace, metav1.ListOptions{}),
 	}
 
-	clActions := cl.Actions()
+	clActions := pmClientSet.Actions()
 	if expected, got := 2, len(clActions); expected != got {
 		t.Fatalf("unexpected total actions executed, expected %d got %d", expected, got)
 	}
@@ -83,34 +74,33 @@ func TestController_ItGetsCreatedOnListeningPodsWithPodAddition(t *testing.T) {
 	}
 }
 
-func TestController_ItGetsDeletedOnListeningPodsWithPodAdditionWithoutBeingPreloadedInTheIndexer(t *testing.T) {
+func TestControllerItGetsDeletedOnListeningPodsWithPodAdditionWithoutBeingPreloadedInTheIndexer(t *testing.T) {
 	namespace := "default"
 	name := "foo"
 	eh := &fakeHandler{}
-	cl := fake.NewSimpleClientset()
-	i := informers.NewSharedInformerFactory(cl, 0)
-	pi := i.Core().V1().Pods()
-	fr := &fakeRunner{}
-	ctl := New(eh, pi.Informer(), fr, "Pod")
+
+	pmClientSet := crdFake.NewSimpleClientset()
+	crdInf := crdinformers.NewSharedInformerFactory(pmClientSet, 0)
+
+	pi := crdInf.K8slab().V1alpha1().PrometheusServers().Informer()
+	ctl := NewController(eh, pi)
+	ctl.workerFrequency = time.Millisecond * 50
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go ctl.Run(ctx)
 
-	p := getFakePod(namespace, name)
-	if err := pi.Informer().GetIndexer().Add(p); err != nil {
-		t.Fatalf("unable to add entry to indexer,error %v", err)
-	}
+	go ctl.Run(ctx, 1)
+	go crdInf.Start(ctx.Done())
 
-	keys := pi.Informer().GetIndexer().ListKeys()
-	if expected, got := 1, len(keys); expected != got {
-		t.Fatalf("handled size does not match, expected %d got %d", expected, got)
-	}
+	cache.WaitForCacheSync(ctx.Done(), pi.HasSynced)
+
+	p := getFakePrometheusServer(namespace, name)
+	ctl.enqueuePrometheusServer(p)
 
 	// informer runner needs time @TODO: think on a real synced solution
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond * 200)
 
-	if expected, got := 0, eh.created(); expected != int(got) {
+	if expected, got := 0, eh.updated(); expected != int(got) {
 		t.Errorf("calls do not match, expected %d got %d", expected, got)
 	}
 	if expected, got := 1, eh.deleted(); expected != int(got) {
@@ -118,63 +108,73 @@ func TestController_ItGetsDeletedOnListeningPodsWithPodAdditionWithoutBeingPrelo
 	}
 }
 
+func TestControllerItRetriesConsumedEntriesOnHandlingErrorUntilMaxRetries(t *testing.T) {
+	namespace := "default"
+	name := "foo"
+	eh := &fakeHandler{error: errors.New("foo error")}
+
+	p := getFakePrometheusServer(namespace, name)
+	pmClientSet := crdFake.NewSimpleClientset(p)
+	crdInf := crdinformers.NewSharedInformerFactory(pmClientSet, 0)
+
+	pi := crdInf.K8slab().V1alpha1().PrometheusServers().Informer()
+	ctl := NewController(eh, pi)
+	ctl.workerFrequency = time.Millisecond * 50
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
+
+	go ctl.Run(ctx, 1)
+	go crdInf.Start(ctx.Done())
+
+	cache.WaitForCacheSync(ctx.Done(), pi.HasSynced)
+
+	// informer runner needs time
+	time.Sleep(time.Millisecond * 200)
+
+	if expected, got := maxRetries+1, eh.updated(); expected != int(got) {
+		t.Errorf("calls do not match, expected %d got %d", expected, got)
+	}
+	if expected, got := 0, eh.deleted(); expected != int(got) {
+		t.Errorf("calls do not match, expected %d got %d", expected, got)
+	}
+}
+
 type fakeHandler struct {
-	totalCreated int32
+	totalUpdated int32
 	totalDeleted int32
+	error        error
 }
 
-func (f *fakeHandler) Create(ctx context.Context, o runtime.Object) error {
-	atomic.AddInt32(&f.totalCreated, 1)
-	return nil
+func (f *fakeHandler) Update(ctx context.Context, namespace, name string) error {
+	atomic.AddInt32(&f.totalUpdated, 1)
+	return f.error
 }
 
-func (f *fakeHandler) Update(ctx context.Context, o, n runtime.Object) error {
-	atomic.AddInt32(&f.totalCreated, 1)
-	return nil
-}
-
-func (f *fakeHandler) Delete(ctx context.Context, o runtime.Object) error {
+func (f *fakeHandler) Delete(ctx context.Context, namespace, name string) error {
 	atomic.AddInt32(&f.totalDeleted, 1)
-	return nil
+	return f.error
 }
 
-func (f *fakeHandler) created() int32 {
-	return atomic.LoadInt32(&f.totalCreated)
+func (f *fakeHandler) updated() int32 {
+	return atomic.LoadInt32(&f.totalUpdated)
 }
 
 func (f *fakeHandler) deleted() int32 {
 	return atomic.LoadInt32(&f.totalDeleted)
 }
 
-func getFakePod(namespace, name string) *apiv1.Pod {
-	return &apiv1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
+func getFakePrometheusServer(namespace, name string) *v1alpha1.PrometheusServer {
+	return &v1alpha1.PrometheusServer{
+		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: apiv1.PodSpec{
-			Containers: []apiv1.Container{
-				{
-					Name:            "nginx",
-					Image:           "nginx",
-					ImagePullPolicy: "Always",
-				},
-			},
-			RestartPolicy: apiv1.RestartPolicyNever,
+		Spec: v1alpha1.PrometheusServerSpec{
+			Version: "v0.0.1",
+			Config:  "fakeConfigContent",
 		},
+		Status: v1alpha1.Status{},
 	}
-}
-
-type fakeRunner struct{}
-
-func (f fakeRunner) Process(e interface{}) {
-
-}
-
-func (f fakeRunner) Run(ctx context.Context, h func(context.Context, interface{}) error) {
-
 }

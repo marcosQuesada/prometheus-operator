@@ -41,6 +41,7 @@ func BuildExternalClient() kubernetes.Interface {
 	return client
 }
 
+// BuildAPIInternalClient instantiates api extensions internal client set
 func BuildAPIInternalClient() apiextensionsclientset.Interface {
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -50,6 +51,7 @@ func BuildAPIInternalClient() apiextensionsclientset.Interface {
 	return apiextensionsclientset.NewForConfigOrDie(config)
 }
 
+// BuildAPIExternalClient instantiates api extensions external client set
 func BuildAPIExternalClient() apiextensionsclientset.Interface {
 	kubeConfigPath := os.Getenv("HOME") + "/.kube/config"
 

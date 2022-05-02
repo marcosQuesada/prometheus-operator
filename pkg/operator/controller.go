@@ -3,108 +3,145 @@ package operator
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
+	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
+	"strings"
+	"time"
+	"unicode"
 )
 
+const maxRetries = 5
+
 type Handler interface {
-	Create(ctx context.Context, o runtime.Object) error
-	Update(ctx context.Context, o, n runtime.Object) error
-	Delete(ctx context.Context, o runtime.Object) error
+	Update(ctx context.Context, namespace, name string) error
+	Delete(ctx context.Context, namespace, name string) error
 }
 
 type Controller struct {
-	runner       Runner
-	informer     cache.SharedIndexInformer
-	eventHandler Handler
-	resourceType string
+	queue           workqueue.RateLimitingInterface
+	informer        cache.SharedIndexInformer
+	eventHandler    Handler
+	workerFrequency time.Duration
 }
 
-func New(eventHandler Handler, informer cache.SharedIndexInformer, runner Runner, resourceType string) *Controller {
+func NewController(eventHandler Handler, informer cache.SharedIndexInformer) *Controller {
 	ctl := &Controller{
 		informer:     informer,
-		runner:       runner,
+		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		eventHandler: eventHandler,
-		resourceType: resourceType,
 	}
 
-	eh := NewResourceEventHandler()
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			o, err := eh.Create(obj)
-			if err != nil {
-				log.Errorf("unable to create, error %v", err)
-				return
-			}
-			ctl.runner.Process(o)
+			ctl.enqueuePrometheusServer(obj)
 		},
 		UpdateFunc: func(old, new interface{}) {
-			o, err := eh.Update(old, new)
-			if err != nil {
-				log.Errorf("unable to update, error %v", err)
+			diff := cmp.Diff(old, new)
+			cleanDiff := strings.TrimFunc(diff, func(r rune) bool {
+				return !unicode.IsGraphic(r)
+			})
+			fmt.Println("UPDATE Prometheus Server diff: ", cleanDiff)
+
+			newPs, ok := new.(*v1alpha1.PrometheusServer)
+			if !ok {
 				return
 			}
-			ctl.runner.Process(o)
+			oldPs, ok := old.(*v1alpha1.PrometheusServer)
+			if !ok {
+				return
+			}
+			if newPs.ResourceVersion == oldPs.ResourceVersion {
+				return
+			}
+
+			ctl.enqueuePrometheusServer(newPs)
 		},
 		DeleteFunc: func(obj interface{}) {
-			o, err := eh.Delete(obj)
-			if err != nil {
-				log.Errorf("unable to delete, error %v", err)
-				return
-			}
-			ctl.runner.Process(o)
+			ctl.enqueuePrometheusServer(obj)
 		},
 	})
 	return ctl
 }
 
-func (c *Controller) Run(ctx context.Context) {
+func (c *Controller) Run(ctx context.Context, workers int) {
 	defer utilruntime.HandleCrash()
 
-	if !cache.WaitForNamedCacheSync(c.resourceType, ctx.Done(), c.informer.HasSynced) { // @TODO: HERE!
+	if !cache.WaitForCacheSync(ctx.Done(), c.informer.HasSynced) {
 		return
 	}
 
-	log.Infof("%s First Cache Synced on version %s", c.resourceType, c.informer.LastSyncResourceVersion())
+	log.Infof("First Cache Synced on version %s", c.informer.LastSyncResourceVersion())
 
-	c.runner.Run(ctx, c.handle)
+	for i := 0; i < workers; i++ {
+		go wait.UntilWithContext(ctx, c.runWorker, c.workerFrequency)
+	}
+}
+
+func (c *Controller) runWorker(ctx context.Context) {
+	log.Info("Run Worker")
+	for c.processNextItem(ctx) {
+	}
+}
+
+func (c *Controller) processNextItem(ctx context.Context) bool {
+	log.Info("Process next item")
+	e, quit := c.queue.Get()
+	if quit {
+		log.Error("Queue goes down!")
+		return false
+	}
+	defer c.queue.Done(e)
+
+	err := c.handle(ctx, e)
+	if err == nil {
+		c.queue.Forget(e)
+		return true
+	}
+
+	if c.queue.NumRequeues(e) < maxRetries {
+		log.Errorf("Error processing ev %v, retry. Error: %v", e, err)
+		c.queue.AddRateLimited(e)
+		return true
+	}
+
+	log.Errorf("Error processing %v Max retries achieved: %v", e, err)
+	c.queue.Forget(e)
+	utilruntime.HandleError(err)
+
+	return true
 }
 
 func (c *Controller) handle(ctx context.Context, k interface{}) error {
-	e, ok := k.(Event)
-	if !ok {
-		return fmt.Errorf("unexpected object type on handler, expected event got %T", k)
-	}
-	_, exists, err := c.informer.GetIndexer().GetByKey(e.GetKey())
+	key := k.(string)
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
-		return fmt.Errorf("unable to fetching object with key %s from store: %v", e.GetKey(), err)
+		return fmt.Errorf("invalid resource key: %s", key)
 	}
 
-	// @TODO: HERE!
+	_, exists, err := c.informer.GetIndexer().GetByKey(key)
+	if err != nil {
+		return fmt.Errorf("unable to fetching object with key %s from store: %v", key, err)
+	}
 
 	if !exists {
-		log.Infof("handling deletion on key %s", e.GetKey())
-		if ev, ok := e.(*event); ok {
-			return c.eventHandler.Delete(ctx, ev.obj)
-		}
-		if ev, ok := e.(*updateEvent); ok {
-			return c.eventHandler.Delete(ctx, ev.old)
-		}
-		return nil
+		log.Infof("handling deletion on key %s", key)
+		return c.eventHandler.Delete(ctx, namespace, name)
 	}
 
-	switch ev := e.(type) {
-	case *event:
-		if e.GetAction() == Create {
-			return c.eventHandler.Create(ctx, ev.obj)
-		}
-		return c.eventHandler.Delete(ctx, ev.obj)
-	case *updateEvent:
-		return c.eventHandler.Update(ctx, ev.old, ev.new)
+	return c.eventHandler.Update(ctx, namespace, name)
+}
 
+func (c *Controller) enqueuePrometheusServer(obj interface{}) {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
 	}
 
-	return fmt.Errorf("unexpected object type on handler, expected Event got %T", e)
+	c.queue.Add(key)
 }
