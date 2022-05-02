@@ -31,7 +31,7 @@ func NewOperator(cl versioned.Interface, b []ResourceEnforcer) *operator {
 }
 
 func (o *operator) Update(ctx context.Context, old, new *v1alpha1.PrometheusServer) error {
-	log.Infof("Update called namespace %s name %s ", new.Namespace, new.Name)
+	log.Infof("Update called namespace %s name %s Status %s ", new.Namespace, new.Name, new.Status.Phase)
 	if !new.DeletionTimestamp.IsZero() {
 		return o.Delete(ctx, new)
 	}
@@ -45,12 +45,24 @@ func (o *operator) Update(ctx context.Context, old, new *v1alpha1.PrometheusServ
 	}
 
 	switch new.Status.Phase {
-	case "":
+	case v1alpha1.Empty:
 		if err := o.updateStatus(ctx, new, v1alpha1.Initializing); err != nil {
 			return fmt.Errorf("unable to update status, error %v", err)
 		}
 		return nil
-	case v1alpha1.Initializing, v1alpha1.Applying, v1alpha1.Waiting:
+	case v1alpha1.Initializing:
+		log.Infof("Processing Initializing state %s ", new.Status.Phase)
+		for _, r := range o.builders {
+			if err := r.EnsureCreation(ctx, new); err != nil {
+				return fmt.Errorf("unable to ensure creation on %s error %v", r.Name(), err)
+			}
+		}
+		if err := o.updateStatus(ctx, new, v1alpha1.Waiting); err != nil {
+			return fmt.Errorf("unable to update status, error %v", err)
+		}
+		return nil
+	case v1alpha1.Waiting:
+		log.Infof("Processing state %s ", new.Status.Phase)
 		for _, r := range o.builders {
 			if err := r.EnsureCreation(ctx, new); err != nil {
 				return fmt.Errorf("unable to ensure creation on %s error %v", r.Name(), err)
@@ -60,7 +72,6 @@ func (o *operator) Update(ctx context.Context, old, new *v1alpha1.PrometheusServ
 			return fmt.Errorf("unable to update status, error %v", err)
 		}
 		return nil
-
 	case v1alpha1.Running:
 		// @TODO: Do nothing
 	case v1alpha1.Terminating:
@@ -88,11 +99,7 @@ func (o *operator) Delete(ctx context.Context, p *v1alpha1.PrometheusServer) err
 			return fmt.Errorf("unable to ensure creation on %s error %v", r.Name(), err)
 		}
 	}
-	//for _, r := range o.builders {
-	//	if err := r.EnsureDeletion(ctx, p); err != nil {
-	//		return fmt.Errorf("unable to ensure creation on %s error %v", r.Name(), err)
-	//	}
-	//}
+
 	if p.HasFinalizer(v1alpha1.Name) {
 		if err := o.removeFinalizer(ctx, p); err != nil {
 			return fmt.Errorf("unable to removing finalizer, error %v", err)
@@ -131,4 +138,17 @@ func (o *operator) updateStatus(ctx context.Context, ps *v1alpha1.PrometheusServ
 	ps.Status.Phase = status
 	_, err := o.client.K8slabV1alpha1().PrometheusServers(ps.Namespace).UpdateStatus(ctx, ps, metav1.UpdateOptions{})
 	return err
+}
+
+// @TODO: Move to predicates, to allow update status propagation
+func Equals(o, n *v1alpha1.PrometheusServer) bool {
+	if o.Spec.Config != n.Spec.Config {
+		return false
+	}
+
+	if o.Spec.Version != n.Spec.Version {
+		return false
+	}
+
+	return true
 }

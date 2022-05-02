@@ -15,8 +15,8 @@ const (
 )
 
 const (
+	Empty        = ""
 	Initializing = "INITIALIZING"
-	Applying     = "APPLYING"
 	Waiting      = "WAITING"
 	Running      = "RUNNING" // @TODO: ACTIVE ¿?
 	Terminating  = "TERMINATING"

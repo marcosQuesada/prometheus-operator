@@ -3,10 +3,13 @@ package crd
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
+	"strings"
 	"sync"
+	"unicode"
 )
 
 type controller interface {
@@ -14,7 +17,7 @@ type controller interface {
 	Delete(ctx context.Context, obj *v1alpha1.PrometheusServer) error
 }
 
-// Handler handles swarm state updates
+// Handler handles prometheus server state updates
 type Handler struct {
 	controller controller
 	mutex      sync.RWMutex
@@ -43,10 +46,12 @@ func (h *Handler) Update(ctx context.Context, o, n runtime.Object) error {
 	nsw := n.(*v1alpha1.PrometheusServer)
 	log.Infof("Update PrometheusServer Namespace %s name %s Version%s status %s", old.Namespace, old.Name, old.Spec.Version, old.Status)
 
-	// @TODO: Move to predicates, to allow update status propagation
-	//if Equals(old, nsw) { // @TODO
-	//	return nil
-	//}
+	// @TODO: REMOVE IT
+	diff := cmp.Diff(old, nsw)
+	cleanDiff := strings.TrimFunc(diff, func(r rune) bool {
+		return !unicode.IsGraphic(r)
+	})
+	fmt.Printf("UPDATE %s diff: %s \n", o.GetObjectKind(), cleanDiff)
 
 	if err := h.controller.Update(ctx, old, nsw); err != nil {
 		return fmt.Errorf("unable to update  prometheus server %s %s error %v", nsw.Namespace, nsw.Name, err)
@@ -64,16 +69,4 @@ func (h *Handler) Delete(ctx context.Context, o runtime.Object) error {
 	}
 
 	return nil
-}
-
-func Equals(o, n *v1alpha1.PrometheusServer) bool {
-	if o.Spec.Config != n.Spec.Config {
-		return false
-	}
-
-	if o.Spec.Version != n.Spec.Version {
-		return false
-	}
-
-	return true
 }

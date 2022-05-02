@@ -17,8 +17,8 @@ import (
 // internalCmd represents the internal command
 var internalCmd = &cobra.Command{
 	Use:   "internal",
-	Short: "swarm internal controller",
-	Long:  `swarm internal controller balance configured keys between swarm peers`,
+	Short: "prometheus server internal controller",
+	Long:  `prometheus server internal controller balance configured keys between swarm peers`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Infof("controller internal listening on namespace %s label %s Version %s release date %s http server on port %s", namespace, watchLabel, config2.Commit, config2.Date, config2.HttpPort)
 

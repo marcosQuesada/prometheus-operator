@@ -8,6 +8,7 @@ import (
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	"github.com/marcosQuesada/prometheus-operator/pkg/operator"
+	"github.com/marcosQuesada/prometheus-operator/pkg/operator/resource"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 
@@ -44,19 +45,36 @@ var externalCmd = &cobra.Command{
 		sif := informers.NewSharedInformerFactory(clientSet, 0)
 
 		ps := crdif.K8slab().V1alpha1().PrometheusServers()
-		dpli := sif.Apps().V1().Deployments().Informer()
-		podi := sif.Core().V1().Pods().Informer()
-		cmi := sif.Core().V1().ConfigMaps().Informer()
+		ns := sif.Core().V1().Namespaces()
+		cr := sif.Rbac().V1().ClusterRoles()
+		crb := sif.Rbac().V1().ClusterRoleBindings()
+		cm := sif.Core().V1().ConfigMaps()
+		dpl := sif.Apps().V1().Deployments()
+		svc := sif.Core().V1().Services()
 
 		psi := ps.Informer()
+		nsi := ns.Informer()
+		cli := cr.Informer()
+		clbi := crb.Informer()
+		cmi := cm.Informer()
+		dpli := dpl.Informer()
+		svci := svc.Informer()
+
 		crdif.Start(ctx.Done())
 		sif.Start(ctx.Done())
 
-		if !cache.WaitForNamedCacheSync(v1alpha1.CrdKind, ctx.Done(), cmi.HasSynced, podi.HasSynced, psi.HasSynced, dpli.HasSynced) { // @TODO: CHECK!
+		if !cache.WaitForNamedCacheSync(v1alpha1.CrdKind, ctx.Done(), nsi.HasSynced, cli.HasSynced, clbi.HasSynced, cmi.HasSynced, psi.HasSynced, dpli.HasSynced, svci.HasSynced) { // @TODO: CHECK!
 			log.Fatal("unable to sync pod informer")
 		}
 
-		r := []operator.ResourceEnforcer{}
+		r := []operator.ResourceEnforcer{
+			resource.NewNamespace(clientSet, ns.Lister()),
+			resource.NewClusterRole(clientSet, cr.Lister()),
+			resource.NewClusterRoleBinding(clientSet, crb.Lister()),
+			resource.NewConfigMap(clientSet, cm.Lister()),
+			resource.NewDeployment(clientSet, dpl.Lister()),
+			resource.NewService(clientSet, svc.Lister()),
+		}
 		op := operator.NewOperator(pmClientSet, r)
 
 		crdh := crd.NewHandler(op)
