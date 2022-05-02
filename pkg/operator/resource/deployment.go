@@ -87,7 +87,7 @@ func (c *deployment) create(ctx context.Context, obj *v1alpha1.PrometheusServer)
 					Containers: []corev1.Container{
 						{
 							Name:  operator.MonitoringName,
-							Image: "prom/prometheus", // @TODO: Add version
+							Image: fmt.Sprintf("prom/prometheus:%s", obj.Spec.Version),
 							Args: []string{
 								"--config.file=/etc/prometheus/prometheus.yml",
 								"--storage.tsdb.path=/prometheus/",

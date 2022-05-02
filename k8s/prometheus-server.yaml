@@ -1,10 +1,10 @@
 apiVersion: k8slab.info/v1alpha1
 kind: PrometheusServer
 metadata:
-  name: prometheus-server-crd
+  name: prometheus-server
   namespace: default
 spec:
-  version: 0.0.2
+  version: v2.35.0
   config: |-
     global:
       scrape_interval: 5s
