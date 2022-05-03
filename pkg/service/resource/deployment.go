@@ -71,6 +71,20 @@ func (c *deployment) EnsureDeletion(ctx context.Context, obj *v1alpha1.Prometheu
 	return nil
 }
 
+// IsCreated check if resource exists
+func (c *deployment) IsCreated() (bool, error) {
+	_, err := c.lister.Deployments(c.namespace).Get(c.name)
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("unable to get deployment %v", err)
+	}
+
+	return true, nil
+}
+
 // Name returns resource enforcer target name
 func (c *deployment) Name() string {
 	return deploymentResourceName

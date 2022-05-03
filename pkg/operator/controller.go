@@ -41,11 +41,14 @@ func NewController(eventHandler Handler, informer cache.SharedIndexInformer) *Co
 			ctl.enqueuePrometheusServer(obj)
 		},
 		UpdateFunc: func(old, new interface{}) {
+			// @TODO: REMOVE IT
 			diff := cmp.Diff(old, new)
 			cleanDiff := strings.TrimFunc(diff, func(r rune) bool {
 				return !unicode.IsGraphic(r)
 			})
-			fmt.Println("UPDATE Prometheus Server diff: ", cleanDiff)
+			if len(cleanDiff) > 0 {
+				fmt.Println("UPDATE Prometheus Server diff: ", cleanDiff)
+			}
 
 			newPs, ok := new.(*v1alpha1.PrometheusServer)
 			if !ok {
@@ -89,7 +92,6 @@ func (c *Controller) runWorker(ctx context.Context) {
 }
 
 func (c *Controller) processNextItem(ctx context.Context) bool {
-	log.Info("Process next item")
 	e, quit := c.queue.Get()
 	if quit {
 		log.Error("Queue goes down!")

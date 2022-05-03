@@ -11,6 +11,7 @@ import (
 	"github.com/marcosQuesada/prometheus-operator/pkg/operator"
 	"github.com/marcosQuesada/prometheus-operator/pkg/service"
 	resource2 "github.com/marcosQuesada/prometheus-operator/pkg/service/resource"
+	"github.com/marcosQuesada/prometheus-operator/pkg/service/usecase"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
@@ -74,7 +75,15 @@ var externalCmd = &cobra.Command{
 			resource2.NewDeployment(clientSet, shInf.Apps().V1().Deployments().Lister()),
 			resource2.NewService(clientSet, shInf.Core().V1().Services().Lister()),
 		}
-		op := service.NewOperator(crdInf.K8slab().V1alpha1().PrometheusServers().Lister(), pmClientSet, r)
+		re := service.NewResource(r...)
+		generationCache := service.NewGenerationCache()
+		fnlz := service.NewFinalizer(pmClientSet)
+		cnlt := service.NewConciliator()
+		cnlt.Register(usecase.NewCreator(fnlz, re))
+		cnlt.Register(usecase.NewDeleter(fnlz, re))
+		cnlt.Register(usecase.NewReloader(generationCache, re))
+
+		op := service.NewOperator(crdInf.K8slab().V1alpha1().PrometheusServers().Lister(), pmClientSet, generationCache, cnlt)
 		ctl := operator.NewController(op, ps)
 		go ctl.Run(ctx, workers)
 

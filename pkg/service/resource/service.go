@@ -63,6 +63,20 @@ func (c *service) EnsureDeletion(ctx context.Context, obj *v1alpha1.PrometheusSe
 	return nil
 }
 
+// IsCreated check if resource exists
+func (c *service) IsCreated() (bool, error) {
+	_, err := c.lister.Services(c.namespace).Get(c.name)
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("unable to get service %v", err)
+	}
+
+	return true, nil
+}
+
 // Name returns resource enforcer target name
 func (c *service) Name() string {
 	return serviceResourceName

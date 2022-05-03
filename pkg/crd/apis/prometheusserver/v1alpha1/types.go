@@ -15,12 +15,14 @@ const (
 )
 
 const (
-	Empty        = ""
-	Initializing = "INITIALIZING"
-	Waiting      = "WAITING"
-	Running      = "RUNNING"
-	Reloading    = "RELOADING"
-	Terminating  = "TERMINATING"
+	Empty           = ""
+	Initializing    = "INITIALIZING"
+	WaitingCreation = "WAITING_CREATION"
+	Running         = "RUNNING"
+	Reloading       = "RELOADING"
+	WaitingRemoval  = "WAITING_REMOVAL"
+	Terminating     = "TERMINATING"
+	Terminated      = "TERMINATED"
 )
 
 // Status defines the observed state of Worker

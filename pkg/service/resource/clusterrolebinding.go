@@ -61,6 +61,20 @@ func (c *clusterRoleBinding) EnsureDeletion(ctx context.Context, obj *v1alpha1.P
 	return nil
 }
 
+// IsCreated check if resource exists
+func (c *clusterRoleBinding) IsCreated() (bool, error) {
+	_, err := c.lister.Get(c.name)
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("unable to get cluster role binding %v", err)
+	}
+
+	return true, nil
+}
+
 // Name returns resource enforcer target name
 func (c *clusterRoleBinding) Name() string {
 	return clusterRoleBindingResourceName

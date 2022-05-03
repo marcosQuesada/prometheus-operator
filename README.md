@@ -66,6 +66,10 @@ docker build -t prometheus-operator . --build-arg COMMIT=$(git rev-list -1 HEAD)
   - narrow operator implementation
     - easy path
     - does not real wait
+- Real feedback loop
+  - should be coupled to /-/ready prometheus?
+  - right now just ensures resource creation/deletion
+    - not starting to serve
 
 ### Notes
 Periodic resync

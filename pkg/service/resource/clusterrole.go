@@ -58,8 +58,8 @@ func (c *clusterRole) EnsureDeletion(ctx context.Context, obj *v1alpha1.Promethe
 	return nil
 }
 
-// @TODO: HERE !
-func (c *clusterRole) Exists() (bool, error) {
+// IsCreated check if resource exists
+func (c *clusterRole) IsCreated() (bool, error) {
 	_, err := c.lister.Get(c.name)
 	if apierrors.IsNotFound(err) {
 		return false, nil
