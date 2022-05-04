@@ -101,7 +101,7 @@ func (c *service) create(ctx context.Context, obj *v1alpha1.PrometheusServer) er
 				},
 			},
 			Selector: map[string]string{"app": svc.MonitoringName},
-			Type:     corev1.ServiceTypeNodePort,
+			Type:     corev1.ServiceTypeClusterIP,
 		},
 	}
 	_, err := c.client.CoreV1().Services(c.namespace).Create(ctx, s, metav1.CreateOptions{})

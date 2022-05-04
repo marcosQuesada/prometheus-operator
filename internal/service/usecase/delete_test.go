@@ -10,7 +10,7 @@ import (
 func TestItRemovesAllResourcesRemovesFinalizersAndJumpsToTerminatedStateOnSuccess(t *testing.T) {
 	fn := &fakeFinalizer{}
 	rm := &fakeResourceManager{}
-	dl := NewDeleter(fn, rm).(*deleter)
+	dl := NewDeleter(fn, rm, &fakeRecorder{}).(*deleter)
 	namespace := "default"
 	name := "prometheus-server-crd"
 	ps := getFakePrometheusServer(namespace, name)
@@ -37,7 +37,7 @@ func TestItRemovesAllResourcesRemovesFinalizersAndJumpsToTerminatedStateOnSucces
 func TestItRemainsOnStateWhenRemovesAllWithResourceManagerError(t *testing.T) {
 	fn := &fakeFinalizer{}
 	rm := &fakeResourceManager{error: errors.New("foo error")}
-	dl := NewDeleter(fn, rm).(*deleter)
+	dl := NewDeleter(fn, rm, &fakeRecorder{}).(*deleter)
 	namespace := "default"
 	name := "prometheus-server-crd"
 	ps := getFakePrometheusServer(namespace, name)
