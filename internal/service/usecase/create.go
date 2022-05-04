@@ -4,18 +4,22 @@ import (
 	"context"
 	"github.com/marcosQuesada/prometheus-operator/internal/service"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
 )
 
 type creator struct {
 	finalizer service.Finalizer
 	resource  service.ResourceManager
+	recorder  record.EventRecorder
 }
 
 // NewCreator instantiates creation use case states
-func NewCreator(f service.Finalizer, r service.ResourceManager) service.ConciliatorHandler {
+func NewCreator(f service.Finalizer, r service.ResourceManager, e record.EventRecorder) service.ConciliatorHandler {
 	return &creator{
 		finalizer: f,
 		resource:  r,
+		recorder:  e,
 	}
 }
 
@@ -37,9 +41,10 @@ func (c *creator) Initializing(ctx context.Context, ps *v1alpha1.PrometheusServe
 	defer initializingProcessed.Inc()
 
 	if err := c.resource.CreateAll(ctx, ps); err != nil {
+		c.recorder.Eventf(ps, v1.EventTypeWarning, "createAllError", "error %v creating resources", err.Error())
 		return ps.Status.Phase, err
 	}
-
+	c.recorder.Event(ps, v1.EventTypeNormal, "createAllSuccess", "resources created with success")
 	return v1alpha1.WaitingCreation, nil
 }
 
