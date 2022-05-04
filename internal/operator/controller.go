@@ -17,11 +17,13 @@ import (
 
 const maxRetries = 5
 
+// Handler defines final service handler
 type Handler interface {
 	Update(ctx context.Context, namespace, name string) error
 	Delete(ctx context.Context, namespace, name string) error
 }
 
+// Controller defines Prometheus Server core base
 type Controller struct {
 	queue           workqueue.RateLimitingInterface
 	informer        cache.SharedIndexInformer
@@ -29,6 +31,7 @@ type Controller struct {
 	workerFrequency time.Duration
 }
 
+// NewController instantiates PrometheuServer controller
 func NewController(eventHandler Handler, informer cache.SharedIndexInformer) *Controller {
 	ctl := &Controller{
 		informer:     informer,
@@ -41,14 +44,8 @@ func NewController(eventHandler Handler, informer cache.SharedIndexInformer) *Co
 			ctl.enqueuePrometheusServer(obj)
 		},
 		UpdateFunc: func(old, new interface{}) {
-			// @TODO: REMOVE IT
-			diff := cmp.Diff(old, new)
-			cleanDiff := strings.TrimFunc(diff, func(r rune) bool {
-				return !unicode.IsGraphic(r)
-			})
-			if len(cleanDiff) > 0 {
-				fmt.Println("UPDATE Prometheus Server diff: ", cleanDiff)
-			}
+			// @TODO: REMOVE IT, OR ADD IT AS DEBUG
+			dumpDifference(old, new)
 
 			newPs, ok := new.(*v1alpha1.PrometheusServer)
 			if !ok {
@@ -71,6 +68,7 @@ func NewController(eventHandler Handler, informer cache.SharedIndexInformer) *Co
 	return ctl
 }
 
+// Run starts controller
 func (c *Controller) Run(ctx context.Context, workers int) {
 	defer utilruntime.HandleCrash()
 
@@ -146,4 +144,14 @@ func (c *Controller) enqueuePrometheusServer(obj interface{}) {
 	}
 
 	c.queue.Add(key)
+}
+
+func dumpDifference(old, new interface{}) {
+	diff := cmp.Diff(old, new)
+	cleanDiff := strings.TrimFunc(diff, func(r rune) bool {
+		return !unicode.IsGraphic(r)
+	})
+	if len(cleanDiff) > 0 {
+		fmt.Println("UPDATE Prometheus Server diff: ", cleanDiff)
+	}
 }

@@ -4,14 +4,15 @@ import (
 	"context"
 	"fmt"
 	"github.com/gorilla/mux"
+	internal "github.com/marcosQuesada/prometheus-operator/internal/operator"
+	"github.com/marcosQuesada/prometheus-operator/internal/service"
+	"github.com/marcosQuesada/prometheus-operator/internal/service/resource"
+	"github.com/marcosQuesada/prometheus-operator/internal/service/usecase"
 	cfg "github.com/marcosQuesada/prometheus-operator/pkg/config"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd"
 	crdinformers "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/informers/externalversions"
 	ht "github.com/marcosQuesada/prometheus-operator/pkg/http/handler"
 	"github.com/marcosQuesada/prometheus-operator/pkg/operator"
-	"github.com/marcosQuesada/prometheus-operator/pkg/service"
-	resource2 "github.com/marcosQuesada/prometheus-operator/pkg/service/resource"
-	"github.com/marcosQuesada/prometheus-operator/pkg/service/usecase"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -68,11 +69,11 @@ var internalCmd = &cobra.Command{
 		}
 
 		r := []service.ResourceEnforcer{
-			resource2.NewClusterRole(clientSet, shInf.Rbac().V1().ClusterRoles().Lister()),
-			resource2.NewClusterRoleBinding(clientSet, shInf.Rbac().V1().ClusterRoleBindings().Lister()),
-			resource2.NewConfigMap(clientSet, shInf.Core().V1().ConfigMaps().Lister()),
-			resource2.NewDeployment(clientSet, shInf.Apps().V1().Deployments().Lister()),
-			resource2.NewService(clientSet, shInf.Core().V1().Services().Lister()),
+			resource.NewClusterRole(clientSet, shInf.Rbac().V1().ClusterRoles().Lister()),
+			resource.NewClusterRoleBinding(clientSet, shInf.Rbac().V1().ClusterRoleBindings().Lister()),
+			resource.NewConfigMap(clientSet, shInf.Core().V1().ConfigMaps().Lister()),
+			resource.NewDeployment(clientSet, shInf.Apps().V1().Deployments().Lister()),
+			resource.NewService(clientSet, shInf.Core().V1().Services().Lister()),
 		}
 		re := service.NewResource(r...)
 		generationCache := service.NewGenerationCache()
@@ -83,7 +84,7 @@ var internalCmd = &cobra.Command{
 		cnlt.Register(usecase.NewReloader(generationCache, re))
 
 		op := service.NewOperator(crdInf.K8slab().V1alpha1().PrometheusServers().Lister(), pmClientSet, generationCache, cnlt)
-		ctl := operator.NewController(op, ps)
+		ctl := internal.NewController(op, ps)
 		go ctl.Run(ctx, workers)
 		router := mux.NewRouter()
 		ch := ht.NewChecker(cfg.Commit, cfg.Date)

@@ -27,12 +27,12 @@ func NewFinalizer(c versioned.Interface) Finalizer {
 
 // Ensure check if crd has finalizer, if not it adds it
 func (o *finalizer) Ensure(ctx context.Context, ps *v1alpha1.PrometheusServer) error {
-	if ps.HasFinalizer(v1alpha1.Name) {
+	if HasFinalizer(ps) {
 		return nil
 	}
 
 	if err := o.Add(ctx, ps); err != nil {
-		return fmt.Errorf("unable to add finalizer, error %v", err)
+		return fmt.Errorf("unable to add finalizer, error %w", err)
 	}
 	return nil
 }
@@ -60,4 +60,18 @@ func (o *finalizer) Remove(ctx context.Context, ps *v1alpha1.PrometheusServer) e
 	_, err := o.client.K8slabV1alpha1().PrometheusServers(ps.Namespace).Update(ctx, ps, metav1.UpdateOptions{})
 
 	return err
+}
+
+// HasFinalizer check if prometheusServer label is added as finalizer
+func HasFinalizer(ps *v1alpha1.PrometheusServer) bool {
+	if len(ps.Finalizers) == 0 {
+		return false
+	}
+
+	for _, v := range ps.Finalizers {
+		if v == v1alpha1.Name {
+			return true
+		}
+	}
+	return false
 }

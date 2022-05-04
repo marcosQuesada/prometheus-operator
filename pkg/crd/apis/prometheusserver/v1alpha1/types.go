@@ -15,14 +15,22 @@ const (
 )
 
 const (
-	Empty           = ""
-	Initializing    = "INITIALIZING"
+	// Empty happens on PrometheusServer crd creation
+	Empty = ""
+	// Initializing happens on resource creation
+	Initializing = "INITIALIZING"
+	// WaitingCreation happens waiting all resources created
 	WaitingCreation = "WAITING_CREATION"
-	Running         = "RUNNING"
-	Reloading       = "RELOADING"
-	WaitingRemoval  = "WAITING_REMOVAL"
-	Terminating     = "TERMINATING"
-	Terminated      = "TERMINATED"
+	// Running is the conciliation target
+	Running = "RUNNING"
+	// Reloading happens when received PrometheusServer update while running
+	Reloading = "RELOADING"
+	// WaitingRemoval happens on reloading first stage, waits until all resources are removed
+	WaitingRemoval = "WAITING_REMOVAL"
+	// Terminating happens on PrometheusServer marked to delete
+	Terminating = "TERMINATING"
+	// Terminated happens after processing Terminate, final exit state
+	Terminated = "TERMINATED"
 )
 
 // Status defines the observed state of Worker
@@ -55,18 +63,4 @@ type PrometheusServerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []PrometheusServer `json:"items"`
-}
-
-// @TODO: Segregate ¿=?¿?
-func (in *PrometheusServer) HasFinalizer(s string) bool {
-	if len(in.Finalizers) == 0 {
-		return false
-	}
-
-	for _, v := range in.Finalizers {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }

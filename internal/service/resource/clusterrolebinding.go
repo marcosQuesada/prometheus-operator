@@ -3,8 +3,8 @@ package resource
 import (
 	"context"
 	"fmt"
+	service2 "github.com/marcosQuesada/prometheus-operator/internal/service"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	svc "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	rbac "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -14,7 +14,7 @@ import (
 )
 
 const clusterRoleBindingResourceName = "clusterrolebindings"
-const clusterRoleBindingName = svc.MonitoringName + "-role-binding"
+const clusterRoleBindingName = service2.MonitoringName + "-role-binding"
 const rbacApiGroup = "rbac.authorization.k8s.io"
 const serviceAccount = "ServiceAccount"
 
@@ -25,7 +25,7 @@ type clusterRoleBinding struct {
 }
 
 // NewClusterRoleBinding instantiates cluster role binding resource enforcer
-func NewClusterRoleBinding(cl kubernetes.Interface, l listersV1.ClusterRoleBindingLister) svc.ResourceEnforcer {
+func NewClusterRoleBinding(cl kubernetes.Interface, l listersV1.ClusterRoleBindingLister) service2.ResourceEnforcer {
 	return &clusterRoleBinding{
 		client: cl,
 		lister: l,
@@ -41,7 +41,7 @@ func (c *clusterRoleBinding) EnsureCreation(ctx context.Context, obj *v1alpha1.P
 	}
 
 	if err != nil {
-		return fmt.Errorf("unable to get cluster role bindings %v", err)
+		return fmt.Errorf("unable to get cluster role bindings %w", err)
 	}
 
 	return nil
@@ -69,7 +69,7 @@ func (c *clusterRoleBinding) IsCreated() (bool, error) {
 	}
 
 	if err != nil {
-		return false, fmt.Errorf("unable to get cluster role binding %v", err)
+		return false, fmt.Errorf("unable to get cluster role binding %w", err)
 	}
 
 	return true, nil
@@ -96,14 +96,14 @@ func (c *clusterRoleBinding) create(ctx context.Context, obj *v1alpha1.Prometheu
 			{
 				Kind:      serviceAccount,
 				Name:      "default",
-				Namespace: svc.MonitoringNamespace,
+				Namespace: service2.MonitoringNamespace,
 			},
 		},
 	}
 
 	_, err := c.client.RbacV1().ClusterRoleBindings().Create(ctx, cm, metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to create configmap, error %w", err)
+		return fmt.Errorf("unable to create cluster role binding, error %w", err)
 	}
 	return nil
 }

@@ -3,8 +3,8 @@ package resource
 import (
 	"context"
 	"fmt"
+	svc "github.com/marcosQuesada/prometheus-operator/internal/service"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	svc "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,16 +36,15 @@ func NewService(cl kubernetes.Interface, l listersV1.ServiceLister) svc.Resource
 
 // EnsureCreation checks service existence, if it's not found it will create it
 func (c *service) EnsureCreation(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
-	s, err := c.lister.Services(c.namespace).Get(c.name)
+	_, err := c.lister.Services(c.namespace).Get(c.name)
 	if apierrors.IsNotFound(err) {
 		return c.create(ctx, obj)
 	}
 
 	if err != nil {
-		return fmt.Errorf("unable to get config map %v", err)
+		return fmt.Errorf("unable to get service %w", err)
 	}
 
-	log.Infof("Ensurecreation without errors, conditions %v", s.Status.Conditions) // @TODO
 	return nil
 }
 
@@ -58,7 +57,7 @@ func (c *service) EnsureDeletion(ctx context.Context, obj *v1alpha1.PrometheusSe
 	}
 
 	if err != nil {
-		return fmt.Errorf("unable to delete configmap, error %w", err)
+		return fmt.Errorf("unable to delete service, error %w", err)
 	}
 	return nil
 }
@@ -71,7 +70,7 @@ func (c *service) IsCreated() (bool, error) {
 	}
 
 	if err != nil {
-		return false, fmt.Errorf("unable to get service %v", err)
+		return false, fmt.Errorf("unable to get service %w", err)
 	}
 
 	return true, nil
@@ -89,16 +88,16 @@ func (c *service) create(ctx context.Context, obj *v1alpha1.PrometheusServer) er
 			Name:      prometheusServiceName,
 			Namespace: svc.MonitoringNamespace,
 			Annotations: map[string]string{
-				"prometheus.io/scrape": "true", // Prometheus service scrapped by itself // @TODO
-				"prometheus.io/port":   "9090",
+				"prometheus.io/scrape": "true", // Prometheus service scrapped by itself
+				"prometheus.io/port":   fmt.Sprintf("%d", prometheusHttpPort),
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Port:       8080, // @TODO: TO config!!!
-					TargetPort: intstr.FromInt(9090),
-					NodePort:   30000, // @TODO: Reconsider
+					Port:       prometheusServiceHttpPort,
+					Protocol:   corev1.ProtocolTCP,
+					TargetPort: intstr.FromInt(prometheusHttpPort),
 				},
 			},
 			Selector: map[string]string{"app": svc.MonitoringName},

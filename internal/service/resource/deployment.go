@@ -3,8 +3,8 @@ package resource
 import (
 	"context"
 	"fmt"
+	service2 "github.com/marcosQuesada/prometheus-operator/internal/service"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	svc "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -15,9 +15,10 @@ import (
 	listersV1 "k8s.io/client-go/listers/apps/v1"
 )
 
-const prometheusDeploymentName = svc.MonitoringName + "-deployment"
+const prometheusDeploymentName = service2.MonitoringName + "-deployment"
 const deploymentResourceName = "deployments"
 const prometheusHttpPort = 9090
+const prometheusServiceHttpPort = 8080
 const prometheusConfigPath = "/etc/prometheus/"
 const prometheusStoragePath = "/prometheus/"
 const prometheusReadinessEndpoint = "/-/ready"
@@ -34,11 +35,11 @@ type deployment struct {
 }
 
 // NewDeployment instantiates prometheus deployment resource enforcer
-func NewDeployment(cl kubernetes.Interface, l listersV1.DeploymentLister) svc.ResourceEnforcer {
+func NewDeployment(cl kubernetes.Interface, l listersV1.DeploymentLister) service2.ResourceEnforcer {
 	return &deployment{
 		client:    cl,
 		lister:    l,
-		namespace: svc.MonitoringNamespace,
+		namespace: service2.MonitoringNamespace,
 		name:      prometheusDeploymentName,
 	}
 }
@@ -51,7 +52,7 @@ func (c *deployment) EnsureCreation(ctx context.Context, obj *v1alpha1.Prometheu
 	}
 
 	if err != nil {
-		return fmt.Errorf("unable to get deployment %v", err)
+		return fmt.Errorf("unable to get deployment %w", err)
 	}
 
 	return nil
@@ -79,7 +80,7 @@ func (c *deployment) IsCreated() (bool, error) {
 	}
 
 	if err != nil {
-		return false, fmt.Errorf("unable to get deployment %v", err)
+		return false, fmt.Errorf("unable to get deployment %w", err)
 	}
 
 	return true, nil
@@ -98,23 +99,23 @@ func (c *deployment) create(ctx context.Context, obj *v1alpha1.PrometheusServer)
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.name,
 			Namespace: c.namespace,
-			Labels:    map[string]string{"app": svc.MonitoringName},
+			Labels:    map[string]string{"app": service2.MonitoringName},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": svc.MonitoringName},
+				MatchLabels: map[string]string{"app": service2.MonitoringName},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      c.name,
 					Namespace: c.namespace,
-					Labels:    map[string]string{"app": svc.MonitoringName},
+					Labels:    map[string]string{"app": service2.MonitoringName},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  svc.MonitoringName,
+							Name:  service2.MonitoringName,
 							Image: fmt.Sprintf("prom/prometheus:%s", obj.Spec.Version),
 							Args: []string{
 								prometheusConfigFileArg,
@@ -139,14 +140,6 @@ func (c *deployment) create(ctx context.Context, obj *v1alpha1.PrometheusServer)
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
 									Path: prometheusLivenessEndpoint,
-									Port: intstr.FromInt(prometheusHttpPort),
-								}},
-								InitialDelaySeconds: 2,
-								TimeoutSeconds:      5,
-							},
-							StartupProbe: &corev1.Probe{ // @TODO: RECONSIDER!
-								ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
-									Path: prometheusReadinessEndpoint,
 									Port: intstr.FromInt(prometheusHttpPort),
 								}},
 								InitialDelaySeconds: 2,
@@ -185,7 +178,7 @@ func (c *deployment) create(ctx context.Context, obj *v1alpha1.PrometheusServer)
 	}
 	_, err := c.client.AppsV1().Deployments(c.namespace).Create(ctx, cm, metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to create configmap, error %w", err)
+		return fmt.Errorf("unable to create deployment, error %w", err)
 	}
 	return nil
 }

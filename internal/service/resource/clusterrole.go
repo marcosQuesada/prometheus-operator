@@ -3,8 +3,8 @@ package resource
 import (
 	"context"
 	"fmt"
+	service2 "github.com/marcosQuesada/prometheus-operator/internal/service"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	svc "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	rbac "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,7 +13,7 @@ import (
 	listersV1 "k8s.io/client-go/listers/rbac/v1"
 )
 
-const clusterRoleName = svc.MonitoringName + "-role"
+const clusterRoleName = service2.MonitoringName + "-role"
 const clusterRoleResourceName = "clusterroles"
 
 type clusterRole struct {
@@ -23,7 +23,7 @@ type clusterRole struct {
 }
 
 // NewClusterRole instantiates cluster role resource enforcer
-func NewClusterRole(cl kubernetes.Interface, l listersV1.ClusterRoleLister) svc.ResourceEnforcer {
+func NewClusterRole(cl kubernetes.Interface, l listersV1.ClusterRoleLister) service2.ResourceEnforcer {
 	return &clusterRole{
 		client: cl,
 		lister: l,
@@ -39,7 +39,7 @@ func (c *clusterRole) EnsureCreation(ctx context.Context, obj *v1alpha1.Promethe
 	}
 
 	if err != nil {
-		return fmt.Errorf("unable to get cluster role %v", err)
+		return fmt.Errorf("unable to get cluster role %w", err)
 	}
 
 	return nil
@@ -66,7 +66,7 @@ func (c *clusterRole) IsCreated() (bool, error) {
 	}
 
 	if err != nil {
-		return false, fmt.Errorf("unable to get cluster role %v", err)
+		return false, fmt.Errorf("unable to get cluster role %w", err)
 	}
 
 	return true, nil
@@ -112,7 +112,7 @@ func (c *clusterRole) create(ctx context.Context, obj *v1alpha1.PrometheusServer
 
 	_, err := c.client.RbacV1().ClusterRoles().Create(ctx, cm, metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to create configmap, error %w", err)
+		return fmt.Errorf("unable to create cluster role, error %w", err)
 	}
 	return nil
 }

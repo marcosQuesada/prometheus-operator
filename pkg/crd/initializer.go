@@ -31,7 +31,7 @@ func (b *Builder) EnsureCRDRegistration(ctx context.Context) error {
 	log.Info("Ensuring crd is registered")
 	acc, err := b.initializer.IsAccepted(ctx, v1alpha1.Name)
 	if err != nil {
-		return fmt.Errorf("unable to check crd status, error %v", err)
+		return fmt.Errorf("unable to check crd status, error %w", err)
 	}
 
 	if acc {
@@ -39,7 +39,7 @@ func (b *Builder) EnsureCRDRegistration(ctx context.Context) error {
 	}
 
 	if err := b.create(context.Background()); err != nil {
-		return fmt.Errorf("unable to initialize crd, error %v", err)
+		return fmt.Errorf("unable to initialize crd, error %w", err)
 	}
 
 	return nil

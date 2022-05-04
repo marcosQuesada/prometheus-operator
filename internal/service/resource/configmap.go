@@ -3,8 +3,8 @@ package resource
 import (
 	"context"
 	"fmt"
+	service2 "github.com/marcosQuesada/prometheus-operator/internal/service"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
-	svc "github.com/marcosQuesada/prometheus-operator/pkg/service"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,7 +13,7 @@ import (
 	listersV1 "k8s.io/client-go/listers/core/v1"
 )
 
-const prometheusConfigMapName = svc.MonitoringName + "-config"
+const prometheusConfigMapName = service2.MonitoringName + "-config"
 const prometheusConfigMapKey = "prometheus.yml"
 const configMapResourceName = "configmaps"
 
@@ -25,11 +25,11 @@ type configMap struct {
 }
 
 // NewConfigMap instantiates configmap resource enforcer
-func NewConfigMap(cl kubernetes.Interface, l listersV1.ConfigMapLister) svc.ResourceEnforcer {
+func NewConfigMap(cl kubernetes.Interface, l listersV1.ConfigMapLister) service2.ResourceEnforcer {
 	return &configMap{
 		client:    cl,
 		lister:    l,
-		namespace: svc.MonitoringNamespace,
+		namespace: service2.MonitoringNamespace,
 		name:      prometheusConfigMapName,
 	}
 }
@@ -42,7 +42,7 @@ func (c *configMap) EnsureCreation(ctx context.Context, obj *v1alpha1.Prometheus
 	}
 
 	if err != nil {
-		return fmt.Errorf("unable to get config map %v", err)
+		return fmt.Errorf("unable to get config map %w", err)
 	}
 
 	return nil
@@ -69,7 +69,7 @@ func (c *configMap) IsCreated() (bool, error) {
 	}
 
 	if err != nil {
-		return false, fmt.Errorf("unable to get cofigmap %v", err)
+		return false, fmt.Errorf("unable to get cofigmap %w", err)
 	}
 
 	return true, nil

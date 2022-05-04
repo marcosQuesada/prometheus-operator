@@ -29,7 +29,7 @@ var (
 func BuildLogger(appID string) error {
 	level, err := log.ParseLevel(LogLevel)
 	if err != nil {
-		return fmt.Errorf("unexpected error parsing level, error %v", err)
+		return fmt.Errorf("unexpected error parsing level, error %w", err)
 	}
 	log.SetLevel(level)
 	log.SetReportCaller(true)
@@ -42,7 +42,13 @@ func BuildLogger(appID string) error {
 // SetCoreFlags sets root application flags
 func SetCoreFlags(cmd *cobra.Command, service string) {
 	cmd.PersistentFlags().StringVar(&LogLevel, "log-level", "info", "logging level")
+	if p := os.Getenv("LOG_LEVEL"); p != "" {
+		LogLevel = p
+	}
 	cmd.PersistentFlags().StringVar(&Env, "env", "dev", "environment where the application is running")
+	if p := os.Getenv("ENV"); p != "" {
+		Env = p
+	}
 	cmd.PersistentFlags().StringVar(&HttpPort, "http-port", "9090", "http server port")
 	if p := os.Getenv("HTTP_PORT"); p != "" {
 		HttpPort = p

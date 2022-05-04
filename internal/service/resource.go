@@ -50,7 +50,7 @@ func (o *resource) CreateAll(ctx context.Context, p *v1alpha1.PrometheusServer) 
 
 	for _, r := range o.builders {
 		if err := r.EnsureCreation(ctx, p); err != nil {
-			return fmt.Errorf("unable to ensure creation on %s error %v", r.Name(), err)
+			return fmt.Errorf("unable to ensure creation on %s error %w", r.Name(), err)
 		}
 	}
 
@@ -65,7 +65,7 @@ func (o *resource) DeleteAll(ctx context.Context, p *v1alpha1.PrometheusServer) 
 	for i := len(o.builders) - 1; i >= 0; i-- {
 		r := o.builders[i]
 		if err := r.EnsureDeletion(ctx, p); err != nil {
-			return fmt.Errorf("unable to ensure creation on %s error %v", r.Name(), err)
+			return fmt.Errorf("unable to ensure creation on %s error %w", r.Name(), err)
 		}
 	}
 
@@ -76,7 +76,7 @@ func (o *resource) allResourcesExist(mustExist bool) (bool, error) {
 	for _, r := range o.builders {
 		ok, err := r.IsCreated()
 		if err != nil {
-			return false, fmt.Errorf("resource %s creation check error %v", r.Name(), err)
+			return false, fmt.Errorf("resource %s creation check error %w", r.Name(), err)
 		}
 		if mustExist != ok {
 			return false, nil

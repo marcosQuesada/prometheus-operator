@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -18,7 +19,9 @@ import (
 func TestControllerItGetsCreatedOnListeningPodsWithPodAddition(t *testing.T) {
 	namespace := "default"
 	name := "foo"
-	eh := &fakeHandler{}
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	eh := &fakeHandler{updateWaitGroup: wg}
 	p := getFakePrometheusServer(namespace, name)
 	pmClientSet := crdFake.NewSimpleClientset(p)
 	crdInf := crdinformers.NewSharedInformerFactory(pmClientSet, 0)
@@ -34,8 +37,9 @@ func TestControllerItGetsCreatedOnListeningPodsWithPodAddition(t *testing.T) {
 
 	cache.WaitForCacheSync(ctx.Done(), pi.HasSynced)
 
-	// informer runner needs time @TODO: think on a real synced solution
-	time.Sleep(time.Millisecond * 200)
+	if err := waitUntilTimeout(wg, time.Millisecond*300); err != nil {
+		t.Fatalf("wait error %v", err)
+	}
 
 	if expected, got := 1, eh.updated(); expected != int(got) {
 		t.Errorf("calls do not match, expected %d got %d", expected, got)
@@ -77,7 +81,9 @@ func TestControllerItGetsCreatedOnListeningPodsWithPodAddition(t *testing.T) {
 func TestControllerItGetsDeletedOnListeningPodsWithPodAdditionWithoutBeingPreloadedInTheIndexer(t *testing.T) {
 	namespace := "default"
 	name := "foo"
-	eh := &fakeHandler{}
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	eh := &fakeHandler{deleteWaitGroup: wg}
 
 	pmClientSet := crdFake.NewSimpleClientset()
 	crdInf := crdinformers.NewSharedInformerFactory(pmClientSet, 0)
@@ -97,8 +103,9 @@ func TestControllerItGetsDeletedOnListeningPodsWithPodAdditionWithoutBeingPreloa
 	p := getFakePrometheusServer(namespace, name)
 	ctl.enqueuePrometheusServer(p)
 
-	// informer runner needs time @TODO: think on a real synced solution
-	time.Sleep(time.Millisecond * 200)
+	if err := waitUntilTimeout(wg, time.Millisecond*300); err != nil {
+		t.Fatalf("wait error %v", err)
+	}
 
 	if expected, got := 0, eh.updated(); expected != int(got) {
 		t.Errorf("calls do not match, expected %d got %d", expected, got)
@@ -141,18 +148,26 @@ func TestControllerItRetriesConsumedEntriesOnHandlingErrorUntilMaxRetries(t *tes
 }
 
 type fakeHandler struct {
-	totalUpdated int32
-	totalDeleted int32
-	error        error
+	totalUpdated    int32
+	totalDeleted    int32
+	error           error
+	updateWaitGroup *sync.WaitGroup
+	deleteWaitGroup *sync.WaitGroup
 }
 
 func (f *fakeHandler) Update(ctx context.Context, namespace, name string) error {
 	atomic.AddInt32(&f.totalUpdated, 1)
+	if f.updateWaitGroup != nil {
+		f.updateWaitGroup.Done()
+	}
 	return f.error
 }
 
 func (f *fakeHandler) Delete(ctx context.Context, namespace, name string) error {
 	atomic.AddInt32(&f.totalDeleted, 1)
+	if f.deleteWaitGroup != nil {
+		f.deleteWaitGroup.Done()
+	}
 	return f.error
 }
 
@@ -176,5 +191,20 @@ func getFakePrometheusServer(namespace, name string) *v1alpha1.PrometheusServer 
 			Config:  "fakeConfigContent",
 		},
 		Status: v1alpha1.Status{},
+	}
+}
+
+func waitUntilTimeout(wg *sync.WaitGroup, timeout time.Duration) error {
+	c := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(c)
+	}()
+
+	select {
+	case <-c:
+		return nil
+	case <-time.After(timeout):
+		return errors.New("timeout error")
 	}
 }

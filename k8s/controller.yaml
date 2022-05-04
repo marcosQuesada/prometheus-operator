@@ -38,3 +38,11 @@ spec:
           env:
             - name: HTTP_PORT
               value: "9090"
+            - name: LOG_LEVEL
+              value: "info"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 9090
+            initialDelaySeconds: 2
+            timeoutSeconds: 5
