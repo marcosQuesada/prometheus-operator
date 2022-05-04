@@ -87,21 +87,11 @@ Periodic resync
   }
 ```
 - No state timeouts, this can be solved from an external conciliation loop
-  - PromeheusServer updates forwarded in Fan int pattern
+  - PrometheusServer updates forwarded in Fan int pattern
   - delayed ticker (on each Prometheus Server update) can activate timeout, moving to previous state (example)
 
 Fine Grained Updates (Predicates && GenerationChangedPredicates)
-```
-		
-		//
-		//// @TODO: Further iterations handle separated cases
-		//if old.Spec.Config != ps.Spec.Config {
-		//	// Update ConfigMap && Call Prometheus reload command
-		//	return nil
-		//}
-		//
-		//if old.Spec.Version != ps.Spec.Version {
-		//	// Patch/Update Current Deployment
-		//	return nil
-		//}
-```
+- version update
+  - patch deployment (will rollout new deployment version)
+- config update
+  - patch configmap and call custom prometheus endpoint

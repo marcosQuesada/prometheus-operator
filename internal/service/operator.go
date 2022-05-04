@@ -8,7 +8,12 @@ import (
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/clientset/versioned"
 	v1alpha1Lister "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/listers/prometheusserver/v1alpha1"
 	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	clientgokubescheme "k8s.io/client-go/kubernetes/scheme"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
 )
 
 // MonitoringNamespace defines monitoring namespace
@@ -97,4 +102,11 @@ func (o *operator) updateStatus(ctx context.Context, ps *v1alpha1.PrometheusServ
 	p.Status.Phase = status
 	_, err := o.client.K8slabV1alpha1().PrometheusServers(ps.Namespace).UpdateStatus(ctx, p, metav1.UpdateOptions{})
 	return err
+}
+
+func createRecorder(kubeClient kubernetes.Interface, userAgent string) record.EventRecorder {
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartStructuredLogging(0)
+	eventBroadcaster.StartRecordingToSink(&corev1client.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
+	return eventBroadcaster.NewRecorder(clientgokubescheme.Scheme, v1.EventSource{Component: userAgent})
 }
