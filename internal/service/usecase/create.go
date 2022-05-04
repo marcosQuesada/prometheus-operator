@@ -22,10 +22,13 @@ func NewCreator(f service.Finalizer, r service.ResourceManager) service.Concilia
 // Empty Status handler
 func (c *creator) Empty(ctx context.Context, ps *v1alpha1.PrometheusServer) (newStatus string, err error) {
 	defer emptyProcessed.Inc()
-
-	if err := c.finalizer.Ensure(ctx, ps); err != nil {
-		return ps.Status.Phase, err
+	if !service.HasFinalizer(ps) {
+		if err := c.finalizer.Add(ctx, ps); err != nil {
+			return ps.Status.Phase, err
+		}
+		return ps.Status.Phase, nil
 	}
+
 	return v1alpha1.Initializing, nil
 }
 

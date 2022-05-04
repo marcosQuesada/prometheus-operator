@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestItEnsuresFinalizerAndMovesToInitializingOnEmptyState(t *testing.T) {
+func TestItAddsFinalizerAndStaysInTheSameStateOnEmptyState(t *testing.T) {
 	fn := &fakeFinalizer{}
 	rm := &fakeResourceManager{}
 	c := NewCreator(fn, rm).(*creator)
@@ -19,12 +19,31 @@ func TestItEnsuresFinalizerAndMovesToInitializingOnEmptyState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error on empty state got %v", err)
 	}
-	if expected, got := v1alpha1.Initializing, newStatus; expected != got {
-		t.Fatalf("new state does not match, expected %s got %s", expected, got)
+
+	if expected, got := ps.Status.Phase, newStatus; expected != got {
+		t.Fatalf("unexpected status, expected %s got %s", expected, got)
 	}
 
-	if expected, got := 1, fn.ensureCalled; expected != got {
+	if expected, got := 1, fn.addCalled; expected != got {
 		t.Errorf("total calls does not match, expected %d got %d", expected, got)
+	}
+}
+
+func TestItMovesToInitializingWhenAddedFinalizerOnEmptyState(t *testing.T) {
+	fn := &fakeFinalizer{}
+	rm := &fakeResourceManager{}
+	c := NewCreator(fn, rm).(*creator)
+	namespace := "default"
+	name := "prometheus-server-crd"
+	ps := getFakePrometheusServer(namespace, name)
+	ps.Finalizers = []string{v1alpha1.Name}
+	newStatus, err := c.Empty(context.Background(), ps)
+	if err != nil {
+		t.Fatalf("unexpected error on empty state got %v", err)
+	}
+
+	if expected, got := v1alpha1.Initializing, newStatus; expected != got {
+		t.Fatalf("new state does not match, expected %s got %s", expected, got)
 	}
 }
 

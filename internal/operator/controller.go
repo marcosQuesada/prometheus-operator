@@ -16,6 +16,7 @@ import (
 )
 
 const maxRetries = 5
+const defaultWorkerFrequency = time.Second * 5
 
 // Handler defines final service handler
 type Handler interface {
@@ -34,9 +35,10 @@ type Controller struct {
 // NewController instantiates PrometheusServer controller
 func NewController(eventHandler Handler, informer cache.SharedIndexInformer) *Controller {
 	ctl := &Controller{
-		informer:     informer,
-		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		eventHandler: eventHandler,
+		informer:        informer,
+		queue:           workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		eventHandler:    eventHandler,
+		workerFrequency: defaultWorkerFrequency,
 	}
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{

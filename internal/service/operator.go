@@ -60,7 +60,7 @@ func (o *operator) Update(ctx context.Context, namespace, name string) error {
 
 	if !ps.DeletionTimestamp.IsZero() && ps.Status.Phase != v1alpha1.Terminating {
 		if err := o.updateStatus(ctx, ps, v1alpha1.Terminating); err != nil {
-			return fmt.Errorf("unable to update status, error %w", err)
+			return fmt.Errorf("unable to update status to Terminating, error %w", err)
 		}
 		return nil
 	}
@@ -77,7 +77,7 @@ func (o *operator) Update(ctx context.Context, namespace, name string) error {
 	log.Infof("Updating Status from %s to %s", ps.Status.Phase, newState)
 
 	if err := o.updateStatus(ctx, ps, newState); err != nil {
-		return fmt.Errorf("unable to update status, error %w", err)
+		return fmt.Errorf("unable to update status to newState, error %w", err)
 	}
 	return nil
 }

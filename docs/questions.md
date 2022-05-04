@@ -97,5 +97,6 @@ To be explicit, a running solution that does not fulfill all the requirements is
 - I learnt quite a few things
   - finalizers
   - resync
+  - 409 Resource modifications and event loops
   - toolset limitations
   - ...
