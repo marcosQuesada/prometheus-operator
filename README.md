@@ -46,10 +46,8 @@ docker build -t prometheus-operator . --build-arg COMMIT=$(git rev-list -1 HEAD)
 ```
 
 ### TODOs
-- LogLevel env var
 - constants everywhere
 - project structure
-- eventRecorder
 - OwnerRef
 - clean AlertManager from prometheus example config
 

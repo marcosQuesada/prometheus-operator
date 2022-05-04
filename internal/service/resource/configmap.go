@@ -83,7 +83,6 @@ func (c *configMap) Name() string {
 func (c *configMap) create(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
 	log.Infof("creating configmap  %s", c.name)
 	cm := &v1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.name,
 			Namespace: c.namespace,

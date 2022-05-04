@@ -31,7 +31,7 @@ type Controller struct {
 	workerFrequency time.Duration
 }
 
-// NewController instantiates PrometheuServer controller
+// NewController instantiates PrometheusServer controller
 func NewController(eventHandler Handler, informer cache.SharedIndexInformer) *Controller {
 	ctl := &Controller{
 		informer:     informer,
@@ -44,8 +44,9 @@ func NewController(eventHandler Handler, informer cache.SharedIndexInformer) *Co
 			ctl.enqueuePrometheusServer(obj)
 		},
 		UpdateFunc: func(old, new interface{}) {
-			// @TODO: REMOVE IT, OR ADD IT AS DEBUG
-			dumpDifference(old, new)
+			if log.GetLevel() == log.DebugLevel {
+				dumpDifference(old, new)
+			}
 
 			newPs, ok := new.(*v1alpha1.PrometheusServer)
 			if !ok {
@@ -68,7 +69,7 @@ func NewController(eventHandler Handler, informer cache.SharedIndexInformer) *Co
 	return ctl
 }
 
-// Run starts controller
+// Run starts controller loop
 func (c *Controller) Run(ctx context.Context, workers int) {
 	defer utilruntime.HandleCrash()
 
@@ -90,27 +91,27 @@ func (c *Controller) runWorker(ctx context.Context) {
 }
 
 func (c *Controller) processNextItem(ctx context.Context) bool {
-	e, quit := c.queue.Get()
+	key, quit := c.queue.Get()
 	if quit {
-		log.Error("Queue goes down!")
+		log.Info("Queue goes down!")
 		return false
 	}
-	defer c.queue.Done(e)
+	defer c.queue.Done(key)
 
-	err := c.handle(ctx, e)
+	err := c.handle(ctx, key)
 	if err == nil {
-		c.queue.Forget(e)
+		c.queue.Forget(key)
 		return true
 	}
 
-	if c.queue.NumRequeues(e) < maxRetries {
-		log.Errorf("Error processing ev %v, retry. Error: %v", e, err)
-		c.queue.AddRateLimited(e)
+	if c.queue.NumRequeues(key) < maxRetries {
+		log.Errorf("Error processing key %s, retry. Error: %v", key, err)
+		c.queue.AddRateLimited(key)
 		return true
 	}
 
-	log.Errorf("Error processing %v Max retries achieved: %v", e, err)
-	c.queue.Forget(e)
+	log.Errorf("Error processing key %s Max retries achieved: %v", key, err)
+	c.queue.Forget(key)
 	utilruntime.HandleError(err)
 
 	return true
@@ -152,6 +153,6 @@ func dumpDifference(old, new interface{}) {
 		return !unicode.IsGraphic(r)
 	})
 	if len(cleanDiff) > 0 {
-		fmt.Println("UPDATE Prometheus Server diff: ", cleanDiff)
+		fmt.Println("UPDATE diff: ", cleanDiff)
 	}
 }

@@ -2,18 +2,18 @@ package usecase
 
 import (
 	"context"
-	service2 "github.com/marcosQuesada/prometheus-operator/internal/service"
+	"github.com/marcosQuesada/prometheus-operator/internal/service"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	log "github.com/sirupsen/logrus"
 )
 
 type reloader struct {
-	generation service2.Cache
-	resource   service2.ResourceManager
+	generation service.Cache
+	resource   service.ResourceManager
 }
 
 // NewReloader instantiates reloader use case status handlers
-func NewReloader(c service2.Cache, r service2.ResourceManager) service2.ConciliatorHandler {
+func NewReloader(c service.Cache, r service.ResourceManager) service.ConciliatorHandler {
 	return &reloader{
 		generation: c,
 		resource:   r,
@@ -59,8 +59,8 @@ func (r *reloader) WaitingRemoval(ctx context.Context, ps *v1alpha1.PrometheusSe
 }
 
 // Handlers return creation status handlers
-func (r *reloader) Handlers() map[string]service2.StateHandler {
-	return map[string]service2.StateHandler{
+func (r *reloader) Handlers() map[string]service.StateHandler {
+	return map[string]service.StateHandler{
 		v1alpha1.Running:        r.Running,
 		v1alpha1.Reloading:      r.Reloading,
 		v1alpha1.WaitingRemoval: r.WaitingRemoval,

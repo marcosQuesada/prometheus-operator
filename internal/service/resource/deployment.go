@@ -21,8 +21,12 @@ const prometheusHttpPort = 9090
 const prometheusServiceHttpPort = 8080
 const prometheusConfigPath = "/etc/prometheus/"
 const prometheusStoragePath = "/prometheus/"
+const prometheusStorageVolumeName = "prometheus-storage-volume"
+const prometheusConfigVolumeName = "prometheus-config-volume"
 const prometheusReadinessEndpoint = "/-/ready"
 const prometheusLivenessEndpoint = "/-/healthy"
+const defaultInitialDelaySeconds = 2
+const defaultTimeoutSeconds = 5
 
 var prometheusConfigFileArg = fmt.Sprintf("--config.file=%sprometheus.yml", prometheusConfigPath)
 var prometheusDbPathArg = fmt.Sprintf("--storage.tsdb.path=%s", prometheusStoragePath)
@@ -129,11 +133,11 @@ func (c *deployment) create(ctx context.Context, obj *v1alpha1.PrometheusServer)
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name:      "prometheus-config-volume",
+									Name:      prometheusConfigVolumeName,
 									MountPath: prometheusConfigPath,
 								},
 								{
-									Name:      "prometheus-storage-volume",
+									Name:      prometheusStorageVolumeName,
 									MountPath: prometheusStoragePath,
 								},
 							},
@@ -142,21 +146,21 @@ func (c *deployment) create(ctx context.Context, obj *v1alpha1.PrometheusServer)
 									Path: prometheusLivenessEndpoint,
 									Port: intstr.FromInt(prometheusHttpPort),
 								}},
-								InitialDelaySeconds: 2,
-								TimeoutSeconds:      5,
+								InitialDelaySeconds: defaultInitialDelaySeconds,
+								TimeoutSeconds:      defaultTimeoutSeconds,
 							},
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
 									Path: prometheusReadinessEndpoint,
 									Port: intstr.FromInt(prometheusHttpPort),
 								}},
-								InitialDelaySeconds: 2,
-								TimeoutSeconds:      5,
+								InitialDelaySeconds: defaultInitialDelaySeconds,
+								TimeoutSeconds:      defaultTimeoutSeconds,
 							},
 						}},
 					Volumes: []corev1.Volume{
 						{
-							Name: "prometheus-config-volume",
+							Name: prometheusConfigVolumeName,
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{Name: prometheusConfigMapName},
@@ -165,7 +169,7 @@ func (c *deployment) create(ctx context.Context, obj *v1alpha1.PrometheusServer)
 							},
 						},
 						{
-							Name: "prometheus-storage-volume",
+							Name: prometheusStorageVolumeName,
 							VolumeSource: corev1.VolumeSource{
 								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},

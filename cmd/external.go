@@ -26,6 +26,9 @@ import (
 	"time"
 )
 
+const httpReadTimeout = 10 * time.Second
+const httpWriteTimeout = 10 * time.Second
+
 // externalCmd represents the external command
 var externalCmd = &cobra.Command{
 	Use:   "external",
@@ -59,7 +62,6 @@ var externalCmd = &cobra.Command{
 		crdInf.Start(ctx.Done())
 		shInf.Start(ctx.Done())
 
-		log.Info("Waiting Informer sync")
 		if !cache.WaitForCacheSync(ctx.Done(),
 			cr.HasSynced,
 			crb.HasSynced,
@@ -96,8 +98,8 @@ var externalCmd = &cobra.Command{
 		srv := &http.Server{
 			Addr:         fmt.Sprintf(":%s", cfg.HttpPort),
 			Handler:      router,
-			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 10 * time.Second,
+			ReadTimeout:  httpReadTimeout,
+			WriteTimeout: httpWriteTimeout,
 		}
 
 		go func(h *http.Server) {

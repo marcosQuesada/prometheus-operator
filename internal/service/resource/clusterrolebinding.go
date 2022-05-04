@@ -83,7 +83,6 @@ func (c *clusterRoleBinding) Name() string {
 func (c *clusterRoleBinding) create(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
 	log.Infof("creating cluster role binding %s", c.name)
 	cm := &rbac.ClusterRoleBinding{
-		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: c.name,
 		},

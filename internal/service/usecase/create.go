@@ -2,17 +2,17 @@ package usecase
 
 import (
 	"context"
-	service2 "github.com/marcosQuesada/prometheus-operator/internal/service"
+	"github.com/marcosQuesada/prometheus-operator/internal/service"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 )
 
 type creator struct {
-	finalizer service2.Finalizer
-	resource  service2.ResourceManager
+	finalizer service.Finalizer
+	resource  service.ResourceManager
 }
 
 // NewCreator instantiates creation use case states
-func NewCreator(f service2.Finalizer, r service2.ResourceManager) service2.ConciliatorHandler {
+func NewCreator(f service.Finalizer, r service.ResourceManager) service.ConciliatorHandler {
 	return &creator{
 		finalizer: f,
 		resource:  r,
@@ -56,8 +56,8 @@ func (c *creator) WaitingCreation(ctx context.Context, ps *v1alpha1.PrometheusSe
 }
 
 // Handlers return creation status handlers
-func (c *creator) Handlers() map[string]service2.StateHandler {
-	return map[string]service2.StateHandler{
+func (c *creator) Handlers() map[string]service.StateHandler {
+	return map[string]service.StateHandler{
 		v1alpha1.Empty:           c.Empty,
 		v1alpha1.Initializing:    c.Initializing,
 		v1alpha1.WaitingCreation: c.WaitingCreation,
