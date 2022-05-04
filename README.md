@@ -8,11 +8,11 @@ The aim of the task is to see how you generally solve a problem, not tackle a sp
 To be explicit, a running solution that does not fulfill all the requirements is better than perfect code that doesn’t fulfill any requirements.
 
 ### Requirements
-- [ ] When a Prometheus Custom Resource is submitted to a cluster, the operator should ensure that a matching Prometheus server is created, running inside the cluster.
-- [ ] The Custom Resource should specify the Prometheus server version.
-- [ ] The Prometheus server created should scrape metrics from the implemented Kubernetes Operator.
-  - [ ] The Prometheus server’s scrape configuration should be configurable through the Custom Resource.
-- [ ] When the Custom Resource is removed, the Prometheus server is removed too.
+- [X] When a Prometheus Custom Resource is submitted to a cluster, the operator should ensure that a matching Prometheus server is created, running inside the cluster.
+- [X] The Custom Resource should specify the Prometheus server version.
+- [X] The Prometheus server created should scrape metrics from the implemented Kubernetes Operator.
+  - [X] The Prometheus server’s scrape configuration should be configurable through the Custom Resource.
+- [X] When the Custom Resource is removed, the Prometheus server is removed too.
 
 ### Questions that have to be answered (in the presentation)
 - [ ] How did you interpret the task? 
@@ -46,13 +46,17 @@ docker build -t prometheus-operator . --build-arg COMMIT=$(git rev-list -1 HEAD)
 ```
 
 ### TODOs
-- timers
+- LogLevel env var
+- constants everywhere
 - project structure
-- minikube restrictions (ImagePullPolicy...)
-- metrics
 - eventRecorder
-- worker pool size
 - OwnerRef
+- clean AlertManager from prometheus example config
+
+### Notes
+### From here to prod
+- timers
+- minikube restrictions (ImagePullPolicy...)
 - admission webhook (limit to 1 CRD, reject all others)
 - rise up unrecoverable errors
   - no resources in cluster example
@@ -62,16 +66,20 @@ docker build -t prometheus-operator . --build-arg COMMIT=$(git rev-list -1 HEAD)
   - Vanilla definition
     - more elaborated ones as federation not allowed
 - No Kubebuilder
-  - controller internals focus 
+  - controller internals focus
   - narrow operator implementation
     - easy path
     - does not real wait
+- Hardcoded conciliation
+  - FSM is static
+- Hardcoded resources
+  - Needs to move to charts (helm)
 - Real feedback loop
   - should be coupled to /-/ready prometheus?
   - right now just ensures resource creation/deletion
     - not starting to serve
-
-### Notes
+  
+### internals
 Periodic resync
 ```
   if newPs.ResourceVersion == oldPs.ResourceVersion {
@@ -79,9 +87,12 @@ Periodic resync
       // Two different versions of the same prometheus servers will always have different RVs.
       return
   }
-
 ```
-Fine Grained Updates
+- No state timeouts, this can be solved from an external conciliation loop
+  - PromeheusServer updates forwarded in Fan int pattern
+  - delayed ticker (on each Prometheus Server update) can activate timeout, moving to previous state (example)
+
+Fine Grained Updates (Predicates && GenerationChangedPredicates)
 ```
 		
 		//
