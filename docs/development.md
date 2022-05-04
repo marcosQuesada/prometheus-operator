@@ -9,4 +9,4 @@ Strong believer on small iterations, code as purpose to solve the main target, s
 - I didn't know about:
   - finalizers
   - sigs.k8s.io
-- 
+- event recorder

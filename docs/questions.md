@@ -72,6 +72,8 @@ To be explicit, a running solution that does not fulfill all the requirements is
 ### What improvements would you add in the future?
 - Kubebuilder (standard code)
 - Real conciliation loop
+- event recorder
+- owner references
 - Admission Webhook (crd real limits)
   - Validation Prometheus config, reject if required
 - Move receipts from hardcoded to helm charts

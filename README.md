@@ -15,7 +15,7 @@ To be explicit, a running solution that does not fulfill all the requirements is
 - [X] When the Custom Resource is removed, the Prometheus server is removed too.
 
 ### Questions that have to be answered (in the presentation)
-- [ ] How did you interpret the task? 
+- [ ] How did you interpret the task?
   - [ ] What questions came up?
   - [ ] What assumptions did you make?
 - [ ] What are the limitations of your solution?
@@ -76,7 +76,7 @@ docker build -t prometheus-operator . --build-arg COMMIT=$(git rev-list -1 HEAD)
   - should be coupled to /-/ready prometheus?
   - right now just ensures resource creation/deletion
     - not starting to serve
-  
+
 ### internals
 Periodic resync
 ```
@@ -87,21 +87,11 @@ Periodic resync
   }
 ```
 - No state timeouts, this can be solved from an external conciliation loop
-  - PromeheusServer updates forwarded in Fan int pattern
+  - PrometheusServer updates forwarded in Fan int pattern
   - delayed ticker (on each Prometheus Server update) can activate timeout, moving to previous state (example)
 
 Fine Grained Updates (Predicates && GenerationChangedPredicates)
-```
-		
-		//
-		//// @TODO: Further iterations handle separated cases
-		//if old.Spec.Config != ps.Spec.Config {
-		//	// Update ConfigMap && Call Prometheus reload command
-		//	return nil
-		//}
-		//
-		//if old.Spec.Version != ps.Spec.Version {
-		//	// Patch/Update Current Deployment
-		//	return nil
-		//}
-```
+- version update
+  - patch deployment (will rollout new deployment version)
+- config update
+  - patch configmap and call custom prometheus endpoint
