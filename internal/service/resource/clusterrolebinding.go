@@ -49,7 +49,7 @@ func (c *clusterRoleBinding) EnsureCreation(ctx context.Context, obj *v1alpha1.P
 
 // EnsureDeletion checks cluster role binding existence, if it's it will delete it
 func (c *clusterRoleBinding) EnsureDeletion(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
-	log.Infof("removing cluster role binding %s", c.name)
+	log.Debugf("removing cluster role binding %s", c.name)
 	err := c.client.RbacV1().ClusterRoleBindings().Delete(ctx, c.name, metav1.DeleteOptions{})
 	if apierrors.IsNotFound(err) {
 		return nil
@@ -81,7 +81,7 @@ func (c *clusterRoleBinding) Name() string {
 }
 
 func (c *clusterRoleBinding) create(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
-	log.Infof("creating cluster role binding %s", c.name)
+	log.Debugf("creating cluster role binding %s", c.name)
 	cm := &rbac.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: c.name,

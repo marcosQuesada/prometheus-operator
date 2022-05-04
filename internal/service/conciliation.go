@@ -29,7 +29,7 @@ func NewConciliator() *conciliation {
 // Register conciliator handler
 func (c *conciliation) Register(o ConciliatorHandler) {
 	for s, handler := range o.Handlers() {
-		log.Infof("registering %s handler", s)
+		log.Debugf("registering %s handler", s)
 		c.state[s] = handler
 	}
 }

@@ -46,7 +46,7 @@ func (o *resource) AllRemoved() (bool, error) {
 
 // CreateAll executes resource creation
 func (o *resource) CreateAll(ctx context.Context, p *v1alpha1.PrometheusServer) error {
-	log.Infof("Creating resources prometheus server namespace %s name %s ", p.Namespace, p.Name)
+	log.Infof("Creating resources from prometheus server on namespace %s name %s ", p.Namespace, p.Name)
 
 	for _, r := range o.builders {
 		if err := r.EnsureCreation(ctx, p); err != nil {
@@ -59,7 +59,7 @@ func (o *resource) CreateAll(ctx context.Context, p *v1alpha1.PrometheusServer) 
 
 // DeleteAll executes resource deletion
 func (o *resource) DeleteAll(ctx context.Context, p *v1alpha1.PrometheusServer) error {
-	log.Infof("Delete resources prometheus server namespace %s name %s ", p.Namespace, p.Name)
+	log.Infof("Delete resources from prometheus server on namespace %s name %s ", p.Namespace, p.Name)
 
 	// Running them from the end to beginning (Opposite as creation)
 	for i := len(o.builders) - 1; i >= 0; i-- {

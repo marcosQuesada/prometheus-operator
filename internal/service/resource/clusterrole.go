@@ -47,7 +47,7 @@ func (c *clusterRole) EnsureCreation(ctx context.Context, obj *v1alpha1.Promethe
 
 // EnsureDeletion checks cluster role existence, if it's it will delete it
 func (c *clusterRole) EnsureDeletion(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
-	log.Infof("removing cluster role %s", c.name)
+	log.Debugf("removing cluster role %s", c.name)
 	err := c.client.RbacV1().ClusterRoles().Delete(ctx, c.name, metav1.DeleteOptions{})
 	if apierrors.IsNotFound(err) {
 		return nil
@@ -78,7 +78,7 @@ func (c *clusterRole) Name() string {
 }
 
 func (c *clusterRole) create(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
-	log.Infof("creating cluster role %s", c.name)
+	log.Debugf("creating cluster role %s", c.name)
 	cm := &rbac.ClusterRole{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{

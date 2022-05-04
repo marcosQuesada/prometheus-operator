@@ -23,6 +23,7 @@ rules:
       - create
   - apiGroups: [""]
     resources:
+      - events
       - configmaps
       - deployments
       - services
@@ -31,6 +32,7 @@ rules:
       - create
       - update
       - watch
+      - patch
       - list
       - delete
   - apiGroups: ["apps"]

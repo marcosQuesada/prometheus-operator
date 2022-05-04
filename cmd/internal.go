@@ -76,14 +76,16 @@ var internalCmd = &cobra.Command{
 		re := service.NewResource(r...)
 		generationCache := service.NewGenerationCache()
 		fnlz := service.NewFinalizer(pmClientSet)
+		rec := createRecorder(clientSet, prometheusServerOperatorUserAgent)
 		cnlt := service.NewConciliator()
-		cnlt.Register(usecase.NewCreator(fnlz, re))
-		cnlt.Register(usecase.NewDeleter(fnlz, re))
-		cnlt.Register(usecase.NewReloader(generationCache, re))
+		cnlt.Register(usecase.NewCreator(fnlz, re, rec))
+		cnlt.Register(usecase.NewDeleter(fnlz, re, rec))
+		cnlt.Register(usecase.NewReloader(generationCache, re, rec))
 
 		op := service.NewOperator(crdInf.K8slab().V1alpha1().PrometheusServers().Lister(), pmClientSet, generationCache, cnlt)
 		ctl := internal.NewController(op, ps)
 		go ctl.Run(ctx, workers)
+
 		router := mux.NewRouter()
 		ch := ht.NewChecker(cfg.Commit, cfg.Date)
 		ch.Routes(router)
@@ -97,7 +99,6 @@ var internalCmd = &cobra.Command{
 		}
 
 		go func(h *http.Server) {
-			log.Infof("starting server on port %s", cfg.HttpPort)
 			e := h.ListenAndServe()
 			if e != nil && e != http.ErrServerClosed {
 				log.Fatalf("Could not Listen and server, error %v", e)

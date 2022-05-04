@@ -39,7 +39,7 @@ func (o *finalizer) Ensure(ctx context.Context, ps *v1alpha1.PrometheusServer) e
 
 // Add finalizer to crd
 func (o *finalizer) Add(ctx context.Context, ps *v1alpha1.PrometheusServer) error {
-	log.Infof("Adding Finalizer from crd %s", ps.Name)
+	log.Debugf("Adding Finalizer from crd %s", ps.Name)
 	p := ps.DeepCopy()
 	p.Finalizers = append(p.Finalizers, v1alpha1.Name)
 	_, err := o.client.K8slabV1alpha1().PrometheusServers(ps.Namespace).Update(ctx, p, metav1.UpdateOptions{})
@@ -49,7 +49,7 @@ func (o *finalizer) Add(ctx context.Context, ps *v1alpha1.PrometheusServer) erro
 
 // Remove finalizer from CRD
 func (o *finalizer) Remove(ctx context.Context, ps *v1alpha1.PrometheusServer) error {
-	log.Infof("Removing Finalizer from crd %s", ps.Name)
+	log.Debugf("Removing Finalizer from crd %s", ps.Name)
 	newFinalizers := []string{}
 	for _, finalizer := range ps.Finalizers {
 		if finalizer == v1alpha1.Name {

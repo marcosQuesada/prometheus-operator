@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"testing"
 )
 
@@ -14,7 +15,7 @@ func TestItRemainsRunningOnUpdateWithSameGeneration(t *testing.T) {
 	ps := getFakePrometheusServer(namespace, name)
 	ps.Status.Phase = v1alpha1.Running
 	ps.Generation = 1
-	r := NewReloader(c, rm).(*reloader)
+	r := NewReloader(c, rm, &fakeRecorder{}).(*reloader)
 	newState, err := r.Running(context.Background(), ps)
 	if err != nil {
 		t.Fatalf("unexpected error on terminating state got %v", err)
@@ -33,7 +34,7 @@ func TestItStartsReloadingOnUpdateWithNewerGeneration(t *testing.T) {
 	ps := getFakePrometheusServer(namespace, name)
 	ps.Status.Phase = v1alpha1.Running
 	ps.Generation = 2
-	r := NewReloader(c, rm).(*reloader)
+	r := NewReloader(c, rm, &fakeRecorder{}).(*reloader)
 	newState, err := r.Running(context.Background(), ps)
 	if err != nil {
 		t.Fatalf("unexpected error on terminating state got %v", err)
@@ -52,7 +53,7 @@ func TestItRemovesAllResourcesAndJumpsToWaitingRemovalState(t *testing.T) {
 	ps := getFakePrometheusServer(namespace, name)
 	ps.Status.Phase = v1alpha1.Reloading
 
-	r := NewReloader(c, rm).(*reloader)
+	r := NewReloader(c, rm, &fakeRecorder{}).(*reloader)
 	newState, err := r.Reloading(context.Background(), ps)
 	if err != nil {
 		t.Fatalf("unexpected error on terminating state got %v", err)
@@ -75,7 +76,7 @@ func TestItChecksAllResourcesAreRemovedAndJumpsToInitializeToForceResourceRecrea
 	ps := getFakePrometheusServer(namespace, name)
 	ps.Status.Phase = v1alpha1.WaitingRemoval
 
-	r := NewReloader(c, rm).(*reloader)
+	r := NewReloader(c, rm, &fakeRecorder{}).(*reloader)
 	newState, err := r.WaitingRemoval(context.Background(), ps)
 	if err != nil {
 		t.Fatalf("unexpected error on terminating state got %v", err)
@@ -102,4 +103,14 @@ func (f *fakeCache) Set(namespace, name string, v int64) {
 
 func (f *fakeCache) Remove(namespace, name string) {
 	f.removed++
+}
+
+type fakeRecorder struct{}
+
+func (f *fakeRecorder) Event(object runtime.Object, eventtype, reason, message string) {}
+
+func (f *fakeRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+}
+
+func (f *fakeRecorder) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
 }

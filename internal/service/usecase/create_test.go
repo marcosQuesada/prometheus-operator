@@ -11,7 +11,7 @@ import (
 func TestItAddsFinalizerAndStaysInTheSameStateOnEmptyState(t *testing.T) {
 	fn := &fakeFinalizer{}
 	rm := &fakeResourceManager{}
-	c := NewCreator(fn, rm).(*creator)
+	c := NewCreator(fn, rm, &fakeRecorder{}).(*creator)
 	namespace := "default"
 	name := "prometheus-server-crd"
 	ps := getFakePrometheusServer(namespace, name)
@@ -32,7 +32,7 @@ func TestItAddsFinalizerAndStaysInTheSameStateOnEmptyState(t *testing.T) {
 func TestItMovesToInitializingWhenAddedFinalizerOnEmptyState(t *testing.T) {
 	fn := &fakeFinalizer{}
 	rm := &fakeResourceManager{}
-	c := NewCreator(fn, rm).(*creator)
+	c := NewCreator(fn, rm, &fakeRecorder{}).(*creator)
 	namespace := "default"
 	name := "prometheus-server-crd"
 	ps := getFakePrometheusServer(namespace, name)
@@ -50,7 +50,7 @@ func TestItMovesToInitializingWhenAddedFinalizerOnEmptyState(t *testing.T) {
 func TestItRemainsOnSameStateOnErrorEnsuringFinalizerOnEmptyState(t *testing.T) {
 	fn := &fakeFinalizer{error: errors.New("foo error")}
 	rm := &fakeResourceManager{}
-	c := NewCreator(fn, rm).(*creator)
+	c := NewCreator(fn, rm, &fakeRecorder{}).(*creator)
 	namespace := "default"
 	name := "prometheus-server-crd"
 	ps := getFakePrometheusServer(namespace, name)
@@ -67,7 +67,7 @@ func TestItRemainsOnSameStateOnErrorEnsuringFinalizerOnEmptyState(t *testing.T) 
 func TestItChecksAllResourcesAreCreatedOnWaitingCreationAndJumpsToRunningOnSuccess(t *testing.T) {
 	fn := &fakeFinalizer{}
 	rm := &fakeResourceManager{response: true}
-	c := NewCreator(fn, rm).(*creator)
+	c := NewCreator(fn, rm, &fakeRecorder{}).(*creator)
 	namespace := "default"
 	name := "prometheus-server-crd"
 	ps := getFakePrometheusServer(namespace, name)
@@ -83,7 +83,7 @@ func TestItChecksAllResourcesAreCreatedOnWaitingCreationAndJumpsToRunningOnSucce
 func TestItChecksAllResourcesAreCreatedOnWaitingCreationAndRemainsOnStateWhenAllResourcesStillPending(t *testing.T) {
 	fn := &fakeFinalizer{}
 	rm := &fakeResourceManager{response: false}
-	c := NewCreator(fn, rm).(*creator)
+	c := NewCreator(fn, rm, &fakeRecorder{}).(*creator)
 	namespace := "default"
 	name := "prometheus-server-crd"
 	ps := getFakePrometheusServer(namespace, name)

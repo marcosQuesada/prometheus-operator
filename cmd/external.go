@@ -10,15 +10,19 @@ import (
 	"github.com/marcosQuesada/prometheus-operator/internal/service/usecase"
 	cfg "github.com/marcosQuesada/prometheus-operator/pkg/config"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd"
+	clientgokubescheme "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/clientset/versioned/scheme"
 	crdinformers "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/informers/externalversions"
 	ht "github.com/marcosQuesada/prometheus-operator/pkg/http/handler"
 	"github.com/marcosQuesada/prometheus-operator/pkg/operator"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/tools/cache"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,6 +30,7 @@ import (
 	"time"
 )
 
+const prometheusServerOperatorUserAgent = "prometheus-server-controller"
 const httpReadTimeout = 10 * time.Second
 const httpWriteTimeout = 10 * time.Second
 
@@ -81,10 +86,11 @@ var externalCmd = &cobra.Command{
 		re := service.NewResource(r...)
 		generationCache := service.NewGenerationCache()
 		fnlz := service.NewFinalizer(pmClientSet)
+		rec := createRecorder(clientSet, prometheusServerOperatorUserAgent)
 		cnlt := service.NewConciliator()
-		cnlt.Register(usecase.NewCreator(fnlz, re))
-		cnlt.Register(usecase.NewDeleter(fnlz, re))
-		cnlt.Register(usecase.NewReloader(generationCache, re))
+		cnlt.Register(usecase.NewCreator(fnlz, re, rec))
+		cnlt.Register(usecase.NewDeleter(fnlz, re, rec))
+		cnlt.Register(usecase.NewReloader(generationCache, re, rec))
 
 		op := service.NewOperator(crdInf.K8slab().V1alpha1().PrometheusServers().Lister(), pmClientSet, generationCache, cnlt)
 		ctl := internal.NewController(op, ps)
@@ -103,7 +109,6 @@ var externalCmd = &cobra.Command{
 		}
 
 		go func(h *http.Server) {
-			log.Infof("starting server on port %s", cfg.HttpPort)
 			e := h.ListenAndServe()
 			if e != nil && e != http.ErrServerClosed {
 				log.Fatalf("Could not Listen and server, error %v", e)
@@ -125,4 +130,11 @@ var externalCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(externalCmd)
+}
+
+func createRecorder(kubeClient kubernetes.Interface, userAgent string) record.EventRecorder {
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartStructuredLogging(0)
+	eventBroadcaster.StartRecordingToSink(&corev1client.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
+	return eventBroadcaster.NewRecorder(clientgokubescheme.Scheme, v1.EventSource{Component: userAgent})
 }
