@@ -94,9 +94,9 @@ func (o *operator) Delete(ctx context.Context, namespace, name string) error {
 
 func (o *operator) updateStatus(ctx context.Context, ps *v1alpha1.PrometheusServer, status string) error {
 	defer statusUpdatesProcessed.Inc()
-
+	p := ps.DeepCopy()
 	log.Infof("Updating status from crd %s to %s", ps.Name, status)
-	ps.Status.Phase = status
-	_, err := o.client.K8slabV1alpha1().PrometheusServers(ps.Namespace).UpdateStatus(ctx, ps, metav1.UpdateOptions{})
+	p.Status.Phase = status
+	_, err := o.client.K8slabV1alpha1().PrometheusServers(ps.Namespace).UpdateStatus(ctx, p, metav1.UpdateOptions{})
 	return err
 }
