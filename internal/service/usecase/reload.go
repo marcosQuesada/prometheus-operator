@@ -25,7 +25,7 @@ func (r *reloader) Running(ctx context.Context, ps *v1alpha1.PrometheusServer) (
 	defer runningProcessed.Inc()
 
 	g := r.generation.Get(ps.Namespace, ps.Name)
-	log.Infof("Update om Running state with generation %d registered is on %d", ps.Generation, g)
+	log.Infof("Prometheus Server on Running state with generation %d registered is on %d", ps.Generation, g)
 	if g == ps.Generation || g == 0 {
 		return ps.Status.Phase, nil
 	}

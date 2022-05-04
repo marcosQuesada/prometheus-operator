@@ -50,7 +50,7 @@ func (c *configMap) EnsureCreation(ctx context.Context, obj *v1alpha1.Prometheus
 
 // EnsureDeletion checks configmap existence, if it's it will delete it
 func (c *configMap) EnsureDeletion(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
-	log.Infof("removing configmap  %s", c.name)
+	log.Debugf("removing configmap  %s", c.name)
 	err := c.client.CoreV1().ConfigMaps(c.namespace).Delete(ctx, prometheusConfigMapName, metav1.DeleteOptions{})
 	if apierrors.IsNotFound(err) {
 		return nil
@@ -81,7 +81,7 @@ func (c *configMap) Name() string {
 }
 
 func (c *configMap) create(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
-	log.Infof("creating configmap  %s", c.name)
+	log.Debugf("creating configmap  %s", c.name)
 	cm := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.name,

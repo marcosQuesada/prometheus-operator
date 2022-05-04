@@ -50,7 +50,7 @@ func (c *service) EnsureCreation(ctx context.Context, obj *v1alpha1.PrometheusSe
 
 // EnsureDeletion checks service existence, if it's it will delete it
 func (c *service) EnsureDeletion(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
-	log.Infof("removing service  %s", c.name)
+	log.Debugf("removing service  %s", c.name)
 	err := c.client.CoreV1().Services(c.namespace).Delete(ctx, c.name, metav1.DeleteOptions{})
 	if apierrors.IsNotFound(err) {
 		return nil
@@ -82,7 +82,7 @@ func (c *service) Name() string {
 }
 
 func (c *service) create(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
-	log.Infof("creating service  %s", c.name)
+	log.Debugf("creating service  %s", c.name)
 	s := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      prometheusServiceName,

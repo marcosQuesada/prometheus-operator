@@ -28,7 +28,7 @@ func NewBuilder(i Initializer) *Builder {
 
 // EnsureCRDRegistration ensures CRD is created, if it didn't it will force creation
 func (b *Builder) EnsureCRDRegistration(ctx context.Context) error {
-	log.Info("Ensuring crd is registered")
+	log.Debug("Ensuring crd is registered")
 	acc, err := b.initializer.IsAccepted(ctx, v1alpha1.Name)
 	if err != nil {
 		return fmt.Errorf("unable to check crd status, error %w", err)
@@ -47,7 +47,7 @@ func (b *Builder) EnsureCRDRegistration(ctx context.Context) error {
 
 // Create defines PrometheusServer CRD resource
 func (b *Builder) create(ctx context.Context) error {
-	log.Info("Creating Prometheus Server CRD")
+	log.Debug("Creating Prometheus Server CRD")
 	cr := &v1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: v1alpha1.Name,

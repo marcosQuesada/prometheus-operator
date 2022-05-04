@@ -103,7 +103,6 @@ var externalCmd = &cobra.Command{
 		}
 
 		go func(h *http.Server) {
-			log.Infof("starting server on port %s", cfg.HttpPort)
 			e := h.ListenAndServe()
 			if e != nil && e != http.ErrServerClosed {
 				log.Fatalf("Could not Listen and server, error %v", e)

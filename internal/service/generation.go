@@ -29,7 +29,7 @@ func (o *generationCache) Get(namespace, name string) int64 {
 
 // Set adds resource generation
 func (o *generationCache) Set(namespace, name string, v int64) {
-	log.Infof("Setting to Registry %s/%s on generation %d", namespace, name, v)
+	log.Debugf("Setting to Registry %s/%s on generation %d", namespace, name, v)
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
@@ -38,7 +38,7 @@ func (o *generationCache) Set(namespace, name string, v int64) {
 
 // Remove resource generation
 func (o *generationCache) Remove(namespace, name string) {
-	log.Infof("Removing from registry %s/%s", namespace, name)
+	log.Debugf("Removing from registry %s/%s", namespace, name)
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 

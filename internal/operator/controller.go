@@ -79,7 +79,7 @@ func (c *Controller) Run(ctx context.Context, workers int) {
 		return
 	}
 
-	log.Infof("First Cache Synced on version %s", c.informer.LastSyncResourceVersion())
+	log.Debugf("First Cache Synced on version %s", c.informer.LastSyncResourceVersion())
 
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, c.runWorker, c.workerFrequency)
@@ -87,7 +87,6 @@ func (c *Controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *Controller) runWorker(ctx context.Context) {
-	log.Info("Run Worker")
 	for c.processNextItem(ctx) {
 	}
 }
@@ -132,7 +131,7 @@ func (c *Controller) handle(ctx context.Context, k interface{}) error {
 	}
 
 	if !exists {
-		log.Infof("handling deletion on key %s", key)
+		log.Debugf("handling deletion on key %s", key)
 		return c.eventHandler.Delete(ctx, namespace, name)
 	}
 

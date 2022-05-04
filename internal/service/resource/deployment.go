@@ -64,7 +64,7 @@ func (c *deployment) EnsureCreation(ctx context.Context, obj *v1alpha1.Prometheu
 
 // EnsureDeletion checks deployment existence, if it's it will delete it
 func (c *deployment) EnsureDeletion(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
-	log.Infof("removing deployment  %s", c.name)
+	log.Debugf("removing deployment  %s", c.name)
 	err := c.client.AppsV1().Deployments(c.namespace).Delete(ctx, c.name, metav1.DeleteOptions{})
 	if apierrors.IsNotFound(err) {
 		return nil
@@ -96,7 +96,7 @@ func (c *deployment) Name() string {
 }
 
 func (c *deployment) create(ctx context.Context, obj *v1alpha1.PrometheusServer) error {
-	log.Infof("creating deployment  %s", c.name)
+	log.Debugf("creating deployment  %s", c.name)
 	replicas := int32(1)
 	defaultPermission := int32(420)
 	cm := &appsv1.Deployment{
