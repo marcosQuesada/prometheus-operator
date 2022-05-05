@@ -2,9 +2,10 @@ package usecase
 
 import (
 	"context"
+	"testing"
+
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"testing"
 )
 
 func TestItRemainsRunningOnUpdateWithSameGeneration(t *testing.T) {

@@ -3,6 +3,11 @@ package operator
 import (
 	"context"
 	"errors"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	crdFake "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/clientset/versioned/fake"
 	crdinformers "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/informers/externalversions"
@@ -10,10 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	core "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	"sync"
-	"sync/atomic"
-	"testing"
-	"time"
 )
 
 func TestControllerItGetsCreatedOnListeningPodsWithPodAddition(t *testing.T) {

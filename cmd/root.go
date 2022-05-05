@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	cfg "github.com/marcosQuesada/prometheus-operator/pkg/config"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 	"os"
 	"strconv"
 	"time"
+
+	cfg "github.com/marcosQuesada/prometheus-operator/pkg/config"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
 const appID = "prometheus-operator"

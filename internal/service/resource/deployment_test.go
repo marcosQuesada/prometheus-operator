@@ -2,13 +2,14 @@ package resource
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stest "k8s.io/client-go/testing"
-	"testing"
-	"time"
 )
 
 func TestItCreatesDeploymentOnCreationRequest(t *testing.T) {

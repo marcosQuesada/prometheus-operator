@@ -3,9 +3,10 @@ package usecase
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestItAddsFinalizerAndStaysInTheSameStateOnEmptyState(t *testing.T) {

@@ -3,6 +3,10 @@ package operator
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+	"unicode"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	log "github.com/sirupsen/logrus"
@@ -10,9 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"strings"
-	"time"
-	"unicode"
 )
 
 const maxRetries = 5

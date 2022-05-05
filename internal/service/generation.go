@@ -2,8 +2,9 @@ package service
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type generationCache struct {

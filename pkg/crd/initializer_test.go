@@ -2,8 +2,9 @@ package crd
 
 import (
 	"context"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"testing"
+
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 func TestEnsureCRDRegisteredOnNonRegisteredCrd(t *testing.T) {

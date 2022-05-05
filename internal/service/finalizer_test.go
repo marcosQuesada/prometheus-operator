@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
+	"testing"
+
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	crdFake "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/clientset/versioned/fake"
 	k8stest "k8s.io/client-go/testing"
-	"testing"
 )
 
 func TestITAddsFinalizerOnPrometheusServer(t *testing.T) {

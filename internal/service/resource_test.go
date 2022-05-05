@@ -2,9 +2,10 @@ package service
 
 import (
 	"context"
+	"testing"
+
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestItCreatesAllResourcesOnEmptyCreation(t *testing.T) {
