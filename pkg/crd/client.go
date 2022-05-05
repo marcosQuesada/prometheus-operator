@@ -1,11 +1,12 @@
 package crd
 
 import (
+	"os"
+
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/clientset/versioned"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
 )
 
 // BuildPrometheusServerInternalClient instantiates internal prometheus-server client

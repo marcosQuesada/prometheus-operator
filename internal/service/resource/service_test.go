@@ -2,11 +2,12 @@ package resource
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
-	"testing"
-	"time"
 )
 
 func TestItCreatesServiceOnCreationRequest(t *testing.T) {

@@ -1,12 +1,13 @@
 package operator
 
 import (
+	"os"
+
 	log "github.com/sirupsen/logrus"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
 )
 
 // BuildInternalClient instantiates internal K8s client

@@ -2,8 +2,9 @@ package service
 
 import (
 	"context"
-	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	"testing"
+
+	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 )
 
 func TestItRegisterHandlerAndMatchesOnConciliateState(t *testing.T) {

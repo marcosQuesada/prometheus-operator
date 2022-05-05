@@ -3,8 +3,9 @@ package usecase
 import (
 	"context"
 	"errors"
-	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	"testing"
+
+	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 )
 
 func TestItRemovesAllResourcesRemovesFinalizersAndJumpsToTerminatedStateOnSuccess(t *testing.T) {

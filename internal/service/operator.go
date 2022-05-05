@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+
 	op "github.com/marcosQuesada/prometheus-operator/internal/operator"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/clientset/versioned"

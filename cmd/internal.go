@@ -3,6 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/gorilla/mux"
 	internal "github.com/marcosQuesada/prometheus-operator/internal/operator"
 	"github.com/marcosQuesada/prometheus-operator/internal/service"
@@ -18,10 +23,6 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 // internalCmd represents the internal command

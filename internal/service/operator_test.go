@@ -2,13 +2,14 @@ package service
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	crdFake "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/clientset/versioned/fake"
 	crdinformers "github.com/marcosQuesada/prometheus-operator/pkg/crd/generated/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stest "k8s.io/client-go/testing"
-	"testing"
-	"time"
 )
 
 func TestItJumpsToNewStateWhenConciliationResultHasDifferentState(t *testing.T) {

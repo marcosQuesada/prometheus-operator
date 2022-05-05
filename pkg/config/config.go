@@ -2,10 +2,11 @@ package config
 
 import (
 	"fmt"
+	"os"
+
 	logger "github.com/marcosQuesada/prometheus-operator/pkg/log"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 var (

@@ -3,6 +3,12 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"github.com/gorilla/mux"
 	internal "github.com/marcosQuesada/prometheus-operator/internal/operator"
 	"github.com/marcosQuesada/prometheus-operator/internal/service"
@@ -23,11 +29,6 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 const prometheusServerOperatorUserAgent = "prometheus-server-controller"
