@@ -101,7 +101,7 @@ docker build -t prometheus-operator . --build-arg COMMIT=$(git rev-list -1 HEAD)
 ```
 Run test suite
 ```
-go run --race main.go external
+go test -v --race ./...
 ```
 
 ### Deploy procedures:
