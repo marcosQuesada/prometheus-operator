@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	cfg "github.com/marcosQuesada/prometheus-operator/pkg/config"
@@ -16,7 +15,6 @@ const appID = "prometheus-operator"
 var (
 	namespace      string
 	watchLabel     string
-	workers        int
 	reSyncInterval time.Duration
 )
 
@@ -44,15 +42,6 @@ func initConfig() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	cfg.SetCoreFlags(rootCmd, appID)
-
-	workers = *rootCmd.PersistentFlags().IntP("workers", "w", 1, "total controller workers")
-	if p := os.Getenv("WORKERS"); p != "" {
-		var err error
-		workers, err = strconv.Atoi(p)
-		if err != nil {
-			log.Fatalf("unable to parse workers env var, error %v", err)
-		}
-	}
 
 	var i string
 	i = *rootCmd.PersistentFlags().StringP("resync-interval", "r", "5s", "informer resync interval")

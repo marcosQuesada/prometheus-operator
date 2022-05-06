@@ -4,20 +4,17 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 	"unicode"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	log "github.com/sirupsen/logrus"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
 const maxRetries = 5
-const defaultWorkerFrequency = time.Second * 5
 
 // Handler defines final service handler
 type Handler interface {
@@ -27,19 +24,17 @@ type Handler interface {
 
 // Controller defines Prometheus Server core base
 type Controller struct {
-	queue           workqueue.RateLimitingInterface
-	informer        cache.SharedIndexInformer
-	eventHandler    Handler
-	workerFrequency time.Duration
+	queue        workqueue.RateLimitingInterface
+	informer     cache.SharedIndexInformer
+	eventHandler Handler
 }
 
 // NewController instantiates PrometheusServer controller
 func NewController(eventHandler Handler, informer cache.SharedIndexInformer) *Controller {
 	ctl := &Controller{
-		informer:        informer,
-		queue:           workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		eventHandler:    eventHandler,
-		workerFrequency: defaultWorkerFrequency,
+		informer:     informer,
+		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		eventHandler: eventHandler,
 	}
 
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -73,7 +68,7 @@ func NewController(eventHandler Handler, informer cache.SharedIndexInformer) *Co
 }
 
 // Run starts controller loop
-func (c *Controller) Run(ctx context.Context, workers int) {
+func (c *Controller) Run(ctx context.Context) {
 	defer utilruntime.HandleCrash()
 
 	if !cache.WaitForCacheSync(ctx.Done(), c.informer.HasSynced) {
@@ -82,9 +77,7 @@ func (c *Controller) Run(ctx context.Context, workers int) {
 
 	log.Debugf("First Cache Synced on version %s", c.informer.LastSyncResourceVersion())
 
-	for i := 0; i < workers; i++ {
-		go wait.UntilWithContext(ctx, c.runWorker, c.workerFrequency)
-	}
+	c.runWorker(ctx)
 }
 
 func (c *Controller) runWorker(ctx context.Context) {

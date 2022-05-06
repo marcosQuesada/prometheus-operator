@@ -28,12 +28,11 @@ func TestControllerItGetsCreatedOnListeningPodsWithPodAddition(t *testing.T) {
 	crdInf := crdinformers.NewSharedInformerFactory(pmClientSet, 0)
 	pi := crdInf.K8slab().V1alpha1().PrometheusServers().Informer()
 	ctl := NewController(eh, pi)
-	ctl.workerFrequency = time.Millisecond * 50
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go ctl.Run(ctx, 1)
+	go ctl.Run(ctx)
 	go crdInf.Start(ctx.Done())
 
 	cache.WaitForCacheSync(ctx.Done(), pi.HasSynced)
@@ -91,12 +90,11 @@ func TestControllerItGetsDeletedOnListeningPodsWithPodAdditionWithoutBeingPreloa
 
 	pi := crdInf.K8slab().V1alpha1().PrometheusServers().Informer()
 	ctl := NewController(eh, pi)
-	ctl.workerFrequency = time.Millisecond * 50
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go ctl.Run(ctx, 1)
+	go ctl.Run(ctx)
 	go crdInf.Start(ctx.Done())
 
 	cache.WaitForCacheSync(ctx.Done(), pi.HasSynced)
@@ -127,12 +125,11 @@ func TestControllerItRetriesConsumedEntriesOnHandlingErrorUntilMaxRetries(t *tes
 
 	pi := crdInf.K8slab().V1alpha1().PrometheusServers().Informer()
 	ctl := NewController(eh, pi)
-	ctl.workerFrequency = time.Millisecond * 50
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
 
-	go ctl.Run(ctx, 1)
+	go ctl.Run(ctx)
 	go crdInf.Start(ctx.Done())
 
 	cache.WaitForCacheSync(ctx.Done(), pi.HasSynced)
