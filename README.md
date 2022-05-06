@@ -1,4 +1,5 @@
 # Prometheus Operator
+[![Actions Status](https://github.com/marcosQuesada/prometheus-operator/workflows/CICD/badge.svg)](https://github.com/marcosQuesada/prometheus-operator/actions)
 
 ## Overview
 Prometheus Operator deployer operator, It deploys a basic Prometheus Stack at Kubernetes Cluster based on a new CRD called Prometheus Server, which defines Prometheus version and config.
