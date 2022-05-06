@@ -85,7 +85,7 @@ var internalCmd = &cobra.Command{
 
 		op := service.NewOperator(crdInf.K8slab().V1alpha1().PrometheusServers().Lister(), pmClientSet, generationCache, cnlt)
 		ctl := internal.NewController(op, ps)
-		go ctl.Run(ctx, workers)
+		go ctl.Run(ctx)
 
 		router := mux.NewRouter()
 		ch := ht.NewChecker(cfg.Commit, cfg.Date)
