@@ -23,11 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           go version
-          go get -u golang.org/x/lint/golint
-          go mod vendor        
-
-      - name: Run build
-        run: go build .
+          go get -u golang.org/x/lint/golint     
 
       - name: Run vet & lint
         run: |
@@ -42,12 +38,12 @@ jobs:
     needs: [build]
     if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }} # Only run this workflow if it is master branch on push event
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Deploy to Docker registry
         uses: docker/build-push-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
           repository: marcosquesada/prometheus-operator
           tag_with_ref: true
