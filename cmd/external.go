@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	internal "github.com/marcosQuesada/prometheus-operator/internal/operator"
 	"github.com/marcosQuesada/prometheus-operator/internal/service"
 	"github.com/marcosQuesada/prometheus-operator/internal/service/resource"
 	"github.com/marcosQuesada/prometheus-operator/internal/service/usecase"
@@ -94,7 +93,7 @@ var externalCmd = &cobra.Command{
 		cnlt.Register(usecase.NewReloader(generationCache, re, rec))
 
 		op := service.NewOperator(crdInf.K8slab().V1alpha1().PrometheusServers().Lister(), pmClientSet, generationCache, cnlt)
-		ctl := internal.NewController(op, ps)
+		ctl := operator.NewController(op, ps)
 		go ctl.Run(ctx)
 
 		router := mux.NewRouter()
