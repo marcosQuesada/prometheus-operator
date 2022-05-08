@@ -2,9 +2,9 @@
 [![Actions Status](https://github.com/marcosQuesada/prometheus-operator/workflows/CICD/badge.svg)](https://github.com/marcosQuesada/prometheus-operator/actions)
 
 ## Overview
-Prometheus Operator deployer operator, It deploys a basic Prometheus Stack at Kubernetes Cluster based on a new CRD called Prometheus Server, which defines Prometheus version and config.
+Prometheus Server deployer operator, it deploys a basic Prometheus Stack at Kubernetes Cluster based on a new CRD called Prometheus Server, which defines Prometheus version and config.
 
-Deployer operator will take care in all the required steps to put the Prometheus stack deployed and in service.
+The operator take care in the whole Prometheus Stack lifecycle, ensuring resource creation/deletion executing all required steps.
 
 ## Basics
 This Operator has been done has a learning exercise, so that, a few trade-offs has been done, as:
