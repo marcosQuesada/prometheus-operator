@@ -3,11 +3,11 @@ package operator
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"strings"
 	"unicode"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/marcosQuesada/prometheus-operator/pkg/crd/apis/prometheusserver/v1alpha1"
 	log "github.com/sirupsen/logrus"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
@@ -46,19 +46,23 @@ func NewController(eventHandler Handler, informer cache.SharedIndexInformer) *Co
 				dumpDifference(old, new)
 			}
 
-			newPs, ok := new.(*v1alpha1.PrometheusServer)
-			if !ok {
+			na, err := meta.Accessor(new)
+			if err != nil {
+				log.Errorf("unable to get meta accessor on update new obj, error %v", err)
 				return
 			}
-			oldPs, ok := old.(*v1alpha1.PrometheusServer)
-			if !ok {
-				return
-			}
-			if newPs.ResourceVersion == oldPs.ResourceVersion {
+			oa, err := meta.Accessor(old)
+			if err != nil {
+				log.Errorf("unable to get meta accessor on update old obj, error %v", err)
 				return
 			}
 
-			ctl.enqueuePrometheusServer(newPs)
+			// skip updates without resource version change
+			if na.GetResourceVersion() == oa.GetResourceVersion() {
+				return
+			}
+
+			ctl.enqueuePrometheusServer(new)
 		},
 		DeleteFunc: func(obj interface{}) {
 			ctl.enqueuePrometheusServer(obj)
