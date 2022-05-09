@@ -85,11 +85,6 @@ Many improvements can be done:
 - Admission Webhook: this will limit and validate incoming CRDs (total CRD allowed number, validate Prometheus config before apply)
 - Help charts usage, this probably will move the project to a generic system that it just deploys charts and conciliates them
 
-## Operator commands
-Project developed using Cobra cli, two entry points:
-  - external: Allows external Kubernetes connectivity, useful for development purposes.
-  - internal: Uses K8s internal client, the one to use to build real containers
-  
 ### Running on local
 You can run the controller locally using the external cmd which is really useful while on development
 ```
@@ -204,12 +199,41 @@ LAST SEEN   TYPE     REASON             OBJECT                               MES
 0s          Normal   Rebuilding         prometheusserver/prometheus-server   Prometheus Server Namespace default Name prometheus-server rebuilding
 0s          Normal   createAllSuccess   prometheusserver/prometheus-server   resources created with success
 ```
-## Definitions
+
+
+## Operator commands
+Project developed using Cobra cli, two entry points:
+- external: Allows external Kubernetes connectivity, useful for development purposes.
+- internal: Uses K8s internal client, the one to use to build real containers
+```
+go run main.go                                  
+root controller command
+
+Usage:
+  root [command]
+
+Available Commands:
+  completion  Generate the autocompletion script for the specified shell
+  external    prometheus server external controller, useful on development path
+  help        Help about any command
+  internal    prometheus server internal controller
+
+Flags:
+      --env string               environment where the application is running (default "dev")
+  -h, --help                     help for root
+      --http-port string         http server port (default "9090")
+      --log-level string         logging level (default "info")
+  -r, --resync-interval string   informer resync interval (default "5s")
+
+Use "root [command] --help" for more information about a command.
+
+```  
 ### Environment vars
-- WORKERS: total workers consuming operator events queue
+ All relevant fla
+ gs are overwritten by environment vars:
 - RESYNC_INTERVAL: Shared informer resync period
 - LOG_LEVEL: Logging level detail
 - ENV: reflects deployment environment
 - HTTP_PORT: Operator exposed http port
-  - /metrics reports operator metrics
+  - /metrics reports operator metrics (Scrapped by Prometheus)
   - /healthz reports Release version Date and Hash Commit. Liveness probe endpoint
